@@ -1,0 +1,24 @@
+node_modules
+__pycache__
+.venv
+.git
+.idea
+.vscode
+.cursor
+dist
+build
+*.log
+.DS_Store
+Thumbs.db
+target
+*.md
+!README.md
+
+# 开发过程文件
+题目.md
+迭代.md
+代码生成.md
+对话
+user_rule.md
+result.md
+ScreenShot*.png

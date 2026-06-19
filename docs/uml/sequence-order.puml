@@ -1,0 +1,62 @@
+@startuml 创建订单时序图
+
+actor 用户 as User
+participant "前端\n(Vue)" as FE
+participant "OrderController" as Ctrl
+participant "OrderService" as Svc
+participant "CartItemMapper" as CartMap
+participant "ProductMapper" as ProdMap
+participant "OrderMainMapper" as OrderMap
+participant "OrderItemMapper" as ItemMap
+database "MySQL" as DB
+
+User -> FE : 勾选购物车并填写收货信息，点击结算
+FE -> Ctrl : POST /orders\n{receiverName, receiverPhone, receiverAddress}\nHeader: Authorization
+Ctrl -> Svc : create(userId, OrderCreateRequest)
+
+Svc -> CartMap : selectCheckedByUserId(userId)
+CartMap -> DB : SELECT * FROM cart_item WHERE user_id=? AND checked=1
+DB --> CartMap : 勾选列表
+CartMap --> Svc : List<CartItem>
+
+alt 勾选为空
+  Svc --> Ctrl : throw "请先勾选要结算的商品"
+  Ctrl --> FE : 400
+  FE --> User : 提示勾选商品
+else 有勾选项
+  loop 每个勾选项
+    Svc -> ProdMap : selectById(productId)
+    ProdMap -> DB : SELECT * FROM product WHERE id=?
+    DB --> ProdMap : Product
+    ProdMap --> Svc : Product
+    Svc -> Svc : 校验库存、累加总金额
+  end
+  alt 库存不足
+    Svc --> Ctrl : throw IllegalStateException
+    Ctrl --> FE : 400
+    FE --> User : 提示库存不足
+  else 库存充足
+    Svc -> Svc : 生成订单号
+    Svc -> OrderMap : insert(OrderMain)
+    OrderMap -> DB : INSERT order_main
+    DB --> OrderMap : 生成 id
+    OrderMap --> Svc : -
+
+    loop 每个勾选项
+      Svc -> ProdMap : updateStock(id, quantity)
+      Svc -> Svc : 构建 OrderItem
+      Svc -> ItemMap : insert(OrderItem)
+      Svc -> CartMap : deleteByUserIdAndProductId(...)
+    end
+
+    Svc -> OrderMap : selectById(orderId)
+    OrderMap -> DB : SELECT * FROM order_main WHERE id=?
+    DB --> OrderMap : OrderMain
+    OrderMap --> Svc : OrderMain
+    Svc --> Ctrl : OrderMain
+    Ctrl --> FE : 200, OrderMain
+    FE --> User : 跳转订单详情/提示下单成功
+  end
+end
+
+@enduml

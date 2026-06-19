@@ -1,0 +1,37 @@
+@startuml 用户登录时序图
+
+actor 用户 as User
+participant "前端\n(Vue)" as FE
+participant "AuthController" as Ctrl
+participant "AuthService" as Svc
+participant "UserMapper" as Mapper
+participant "JwtService" as Jwt
+database "MySQL" as DB
+
+User -> FE : 输入用户名、密码并提交
+FE -> Ctrl : POST /auth/login\n{username, password}
+Ctrl -> Svc : login(LoginRequest)
+Svc -> Mapper : selectByUsername(username)
+Mapper -> DB : SELECT * FROM user WHERE username=?
+DB --> Mapper : 用户记录
+Mapper --> Svc : User
+
+alt 用户不存在或密码错误
+  Svc --> Ctrl : throw IllegalArgumentException
+  Ctrl --> FE : 400, "用户名或密码错误"
+  FE --> User : 提示错误
+else 账号已禁用
+  Svc --> Ctrl : throw IllegalArgumentException
+  Ctrl --> FE : 400, "账号已被禁用"
+  FE --> User : 提示错误
+else 校验通过
+  Svc -> Svc : passwordEncoder.matches(...)
+  Svc -> Jwt : generateToken(userId)
+  Jwt --> Svc : token
+  Svc --> Ctrl : token
+  Ctrl --> FE : 200, { token }
+  FE -> FE : 存储 token 到 localStorage
+  FE --> User : 跳转首页/提示登录成功
+end
+
+@enduml

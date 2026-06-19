@@ -1,0 +1,22 @@
+﻿# 开发过程文件
+题目.md
+迭代.md
+代码生成.md
+对话/
+user_rule.md
+result.md
+ScreenShot*.png
+
+# 构建产物与依赖
+node_modules/
+dist/
+build/
+target/
+
+# 环境与 IDE
+.env
+.env.*
+.git/
+.idea/
+.vscode/
+.cursor/

@@ -1,0 +1,104 @@
+@startuml 电商平台ER图
+
+skinparam linetype ortho
+skinparam backgroundColor #FEFEFE
+
+entity "user\n用户表" as user {
+  * id : BIGINT <<PK>>
+  --
+  username : VARCHAR(64) <<UK>>
+  password : VARCHAR(128)
+  nickname : VARCHAR(64)
+  phone : VARCHAR(20)
+  email : VARCHAR(128)
+  avatar : VARCHAR(256)
+  status : TINYINT
+  role : VARCHAR(20)
+  created_at : DATETIME
+  updated_at : DATETIME
+}
+
+entity "category\n商品分类表" as category {
+  * id : BIGINT <<PK>>
+  --
+  name : VARCHAR(64)
+  parent_id : BIGINT
+  sort_order : INT
+  created_at : DATETIME
+  updated_at : DATETIME
+}
+
+entity "product\n商品表" as product {
+  * id : BIGINT <<PK>>
+  --
+  category_id : BIGINT <<FK>>
+  name : VARCHAR(128)
+  subtitle : VARCHAR(256)
+  main_image : VARCHAR(256)
+  detail : TEXT
+  price : DECIMAL(12,2)
+  stock : INT
+  status : TINYINT
+  created_at : DATETIME
+  updated_at : DATETIME
+}
+
+entity "cart_item\n购物车项表" as cart_item {
+  * id : BIGINT <<PK>>
+  --
+  user_id : BIGINT <<FK>>
+  product_id : BIGINT <<FK>>
+  quantity : INT
+  checked : TINYINT
+  created_at : DATETIME
+  updated_at : DATETIME
+}
+
+entity "order_main\n订单主表" as order_main {
+  * id : BIGINT <<PK>>
+  --
+  order_no : VARCHAR(32) <<UK>>
+  user_id : BIGINT <<FK>>
+  total_amount : DECIMAL(12,2)
+  status : TINYINT
+  receiver_name : VARCHAR(64)
+  receiver_phone : VARCHAR(20)
+  receiver_address : VARCHAR(256)
+  created_at : DATETIME
+  updated_at : DATETIME
+}
+
+entity "order_item\n订单明细表" as order_item {
+  * id : BIGINT <<PK>>
+  --
+  order_id : BIGINT <<FK>>
+  product_id : BIGINT <<FK>>
+  product_name : VARCHAR(128)
+  product_image : VARCHAR(256)
+  price : DECIMAL(12,2)
+  quantity : INT
+  total_amount : DECIMAL(12,2)
+}
+
+entity "review\n商品评价表" as review {
+  * id : BIGINT <<PK>>
+  --
+  user_id : BIGINT <<FK>>
+  product_id : BIGINT <<FK>>
+  order_id : BIGINT <<FK>>
+  rating : TINYINT
+  content : VARCHAR(512)
+  created_at : DATETIME
+}
+
+user ||--o{ cart_item : "1:N"
+product ||--o{ cart_item : "1:N"
+user ||--o{ order_main : "1:N"
+order_main ||--o{ order_item : "1:N"
+product ||--o{ order_item : "1:N"
+category ||--o{ product : "1:N"
+user ||--o{ review : "1:N"
+product ||--o{ review : "1:N"
+order_main ||--o{ review : "1:N"
+
+@enduml

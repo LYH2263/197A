@@ -1,0 +1,30 @@
+node_modules
+__pycache__
+.venv
+.git
+.idea
+.vscode
+.cursor
+dist
+build
+*.log
+.DS_Store
+Thumbs.db
+target/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+
+# 环境与本地配置
+.env
+.env.*
+!.env.example
+
+# 开发过程文件（不纳入仓库）
+题目.md
+迭代.md
+代码生成.md
+对话/
+user_rule.md
+result.md
+ScreenShot*.png

@@ -1,0 +1,65 @@
+@startuml 电商平台用例图
+
+left to right direction
+skinparam usecase {
+  BackgroundColor LightYellow
+  BorderColor DarkSlateGray
+}
+actor "游客" as Guest
+actor "普通用户" as User
+actor "管理员" as Admin
+
+User <|-- Admin
+
+rectangle "电商购物平台" {
+  usecase "浏览商品分类" as UC_CAT
+  usecase "浏览商品列表" as UC_PLIST
+  usecase "查看商品详情" as UC_PDETAIL
+  usecase "搜索商品" as UC_SEARCH
+  usecase "用户注册" as UC_REG
+  usecase "用户登录" as UC_LOGIN
+  usecase "查看个人信息" as UC_ME
+  usecase "管理购物车" as UC_CART
+  usecase "提交订单" as UC_ORDER
+  usecase "模拟支付" as UC_PAY
+  usecase "查询/取消订单" as UC_ORDER_MANAGE
+  usecase "商品评价" as UC_REVIEW
+  usecase "我的评价" as UC_MY_REVIEW
+  usecase "用户管理" as UC_ADMIN_USER
+  usecase "评价管理" as UC_ADMIN_REVIEW
+}
+
+Guest --> UC_CAT
+Guest --> UC_PLIST
+Guest --> UC_PDETAIL
+Guest --> UC_SEARCH
+Guest --> UC_REG
+Guest --> UC_LOGIN
+
+User --> UC_ME
+User --> UC_CART
+User --> UC_ORDER
+User --> UC_PAY
+User --> UC_ORDER_MANAGE
+User --> UC_REVIEW
+User --> UC_MY_REVIEW
+User --> UC_CAT
+User --> UC_PLIST
+User --> UC_PDETAIL
+User --> UC_SEARCH
+
+Admin --> UC_ADMIN_USER
+Admin --> UC_ADMIN_REVIEW
+Admin --> UC_ME
+Admin --> UC_ORDER
+Admin --> UC_PAY
+Admin --> UC_ORDER_MANAGE
+Admin --> UC_REVIEW
+Admin --> UC_MY_REVIEW
+Admin --> UC_CAT
+Admin --> UC_PLIST
+Admin --> UC_PDETAIL
+Admin --> UC_SEARCH
+Admin --> UC_CART
+
+@enduml
