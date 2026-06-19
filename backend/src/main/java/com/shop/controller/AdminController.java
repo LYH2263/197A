@@ -1,21 +1,36 @@
 package com.shop.controller;
 
 import com.shop.common.Result;
+import com.shop.dto.AdminProductQueryDTO;
+import com.shop.dto.BatchOperationRequest;
+import com.shop.dto.BatchOperationResult;
+import com.shop.dto.ImportResult;
+import com.shop.dto.PageResult;
 import com.shop.dto.ReviewReplyRequest;
 import com.shop.dto.ReviewVO;
 import com.shop.dto.ShipRequest;
 import com.shop.dto.UserVO;
+import com.shop.entity.Category;
 import com.shop.entity.OrderMain;
+import com.shop.entity.Product;
 import com.shop.entity.ProductImage;
 import com.shop.service.AdminService;
+import com.shop.service.CategoryService;
 import com.shop.service.PriceAlertService;
 import com.shop.service.ProductImageService;
+import com.shop.service.ProductService;
 import com.shop.mapper.ProductMapper;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
@@ -28,6 +43,8 @@ public class AdminController {
     private final ProductImageService productImageService;
     private final PriceAlertService priceAlertService;
     private final ProductMapper productMapper;
+    private final ProductService productService;
+    private final CategoryService categoryService;
 
     private Long requireAdminId(Authentication auth) {
         if (auth == null || !(auth.getPrincipal() instanceof Long)) {
@@ -150,5 +167,104 @@ public class AdminController {
         productMapper.updatePrice(id, newPrice);
         priceAlertService.checkAndNotify(id);
         return Result.ok();
+    }
+
+    @GetMapping("/products")
+    public Result<PageResult<Product>> listProducts(
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) Integer status,
+            @RequestParam(required = false) BigDecimal minPrice,
+            @RequestParam(required = false) BigDecimal maxPrice,
+            @RequestParam(defaultValue = "1") Integer pageNum,
+            @RequestParam(defaultValue = "10") Integer pageSize) {
+        AdminProductQueryDTO query = new AdminProductQueryDTO();
+        query.setName(name);
+        query.setCategoryId(categoryId);
+        query.setStatus(status);
+        query.setMinPrice(minPrice);
+        query.setMaxPrice(maxPrice);
+        query.setPageNum(pageNum);
+        query.setPageSize(pageSize);
+        return Result.ok(productService.adminList(query));
+    }
+
+    @GetMapping("/categories")
+    public Result<List<Category>> listCategories() {
+        return Result.ok(categoryService.listAll());
+    }
+
+    @PostMapping("/products/batch/status")
+    public Result<BatchOperationResult> batchUpdateStatus(@RequestBody BatchOperationRequest request) {
+        if (request.getProductIds() == null || request.getProductIds().isEmpty()) {
+            return Result.fail("请选择商品");
+        }
+        if (request.getStatus() == null) {
+            return Result.fail("状态不能为空");
+        }
+        return Result.ok(adminService.batchUpdateStatus(request.getProductIds(), request.getStatus()));
+    }
+
+    @PostMapping("/products/batch/category")
+    public Result<BatchOperationResult> batchUpdateCategory(@RequestBody BatchOperationRequest request) {
+        if (request.getProductIds() == null || request.getProductIds().isEmpty()) {
+            return Result.fail("请选择商品");
+        }
+        if (request.getCategoryId() == null) {
+            return Result.fail("分类ID不能为空");
+        }
+        return Result.ok(adminService.batchUpdateCategory(request.getProductIds(), request.getCategoryId()));
+    }
+
+    @PostMapping("/products/batch/price")
+    public Result<BatchOperationResult> batchUpdatePrice(@RequestBody BatchOperationRequest request) {
+        if (request.getProductIds() == null || request.getProductIds().isEmpty()) {
+            return Result.fail("请选择商品");
+        }
+        if (request.getPriceRatio() == null) {
+            return Result.fail("调价比例不能为空");
+        }
+        return Result.ok(adminService.batchUpdatePrice(request.getProductIds(), request.getPriceRatio()));
+    }
+
+    @PostMapping("/products/import")
+    public Result<ImportResult> importProducts(@RequestParam("file") MultipartFile file) {
+        if (file.isEmpty()) {
+            return Result.fail("请选择文件");
+        }
+        String filename = file.getOriginalFilename();
+        if (filename == null || !filename.toLowerCase().endsWith(".csv")) {
+            return Result.fail("仅支持CSV文件");
+        }
+        try {
+            ImportResult result = adminService.importProducts(file.getInputStream());
+            return Result.ok(result);
+        } catch (IOException e) {
+            return Result.fail("文件读取失败: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/products/export")
+    public void exportProducts(
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) Integer status,
+            @RequestParam(required = false) BigDecimal minPrice,
+            @RequestParam(required = false) BigDecimal maxPrice,
+            HttpServletResponse response) throws IOException {
+        AdminProductQueryDTO query = new AdminProductQueryDTO();
+        query.setName(name);
+        query.setCategoryId(categoryId);
+        query.setStatus(status);
+        query.setMinPrice(minPrice);
+        query.setMaxPrice(maxPrice);
+
+        List<Product> products = productService.adminListForExport(query);
+
+        response.setContentType("text/csv;charset=utf-8");
+        String filename = URLEncoder.encode("商品列表_" + System.currentTimeMillis() + ".csv", StandardCharsets.UTF_8);
+        response.setHeader("Content-Disposition", "attachment; filename*=UTF-8''" + filename);
+
+        adminService.exportProducts(products, response.getOutputStream());
     }
 }

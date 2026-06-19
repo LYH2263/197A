@@ -71,4 +71,83 @@
     <update id="updatePrice">
         UPDATE product SET price = #{price} WHERE id = #{id}
     </update>
+
+    <sql id="AdminWhereClause">
+        <where>
+            <if test="query.name != null and query.name != ''">
+                AND name LIKE CONCAT('%', #{query.name}, '%')
+            </if>
+            <if test="query.categoryId != null">
+                AND category_id = #{query.categoryId}
+            </if>
+            <if test="query.status != null">
+                AND status = #{query.status}
+            </if>
+            <if test="query.minPrice != null">
+                AND price <![CDATA[>=]]> #{query.minPrice}
+            </if>
+            <if test="query.maxPrice != null">
+                AND price <![CDATA[<=]]> #{query.maxPrice}
+            </if>
+        </where>
+    </sql>
+
+    <select id="selectByAdminCondition" parameterType="com.shop.dto.AdminProductQueryDTO" resultMap="BaseResultMap">
+        SELECT * FROM product
+        <include refid="AdminWhereClause"/>
+        ORDER BY id DESC
+        LIMIT #{query.pageSize} OFFSET ${(query.pageNum - 1) * query.pageSize}
+    </select>
+
+    <select id="countByAdminCondition" parameterType="com.shop.dto.AdminProductQueryDTO" resultType="long">
+        SELECT COUNT(*) FROM product
+        <include refid="AdminWhereClause"/>
+    </select>
+
+    <select id="selectByAdminConditionForExport" parameterType="com.shop.dto.AdminProductQueryDTO" resultMap="BaseResultMap">
+        SELECT * FROM product
+        <include refid="AdminWhereClause"/>
+        ORDER BY id DESC
+    </select>
+
+    <select id="selectByIds" resultMap="BaseResultMap">
+        SELECT * FROM product WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
+    <update id="batchUpdateStatus">
+        UPDATE product SET status = #{status} WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+    <update id="batchUpdateCategory">
+        UPDATE product SET category_id = #{categoryId} WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+    <update id="batchUpdatePrice">
+        UPDATE product SET price = #{price} WHERE id = #{id}
+    </update>
+
+    <insert id="insertProduct" parameterType="com.shop.entity.Product" useGeneratedKeys="true" keyProperty="product.id">
+        INSERT INTO product (category_id, name, subtitle, main_image, detail, price, stock, status, created_at, updated_at)
+        VALUES (
+            #{product.categoryId},
+            #{product.name},
+            #{product.subtitle},
+            #{product.mainImage},
+            #{product.detail},
+            #{product.price},
+            #{product.stock},
+            #{product.status},
+            NOW(),
+            NOW()
+        )
+    </insert>
 </mapper>

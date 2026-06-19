@@ -1,5 +1,7 @@
 package com.shop.service;
 
+import com.shop.dto.AdminProductQueryDTO;
+import com.shop.dto.PageResult;
 import com.shop.dto.ProductQueryDTO;
 import com.shop.entity.Product;
 import com.shop.entity.ProductImage;
@@ -58,5 +60,25 @@ public class ProductService {
         if (rows == 0) {
             throw new IllegalStateException("库存不足");
         }
+    }
+
+    public PageResult<Product> adminList(AdminProductQueryDTO query) {
+        if (query.getPageNum() == null || query.getPageNum() < 1) {
+            query.setPageNum(1);
+        }
+        if (query.getPageSize() == null || query.getPageSize() < 1) {
+            query.setPageSize(10);
+        }
+        List<Product> list = productMapper.selectByAdminCondition(query);
+        long total = productMapper.countByAdminCondition(query);
+        return new PageResult<>(list, total, query.getPageNum(), query.getPageSize());
+    }
+
+    public List<Product> getByIds(List<Long> ids) {
+        return productMapper.selectByIds(ids);
+    }
+
+    public List<Product> adminListForExport(AdminProductQueryDTO query) {
+        return productMapper.selectByAdminConditionForExport(query);
     }
 }

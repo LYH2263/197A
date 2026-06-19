@@ -1,10 +1,12 @@
 package com.shop.mapper;
 
+import com.shop.dto.AdminProductQueryDTO;
 import com.shop.dto.ProductQueryDTO;
 import com.shop.entity.Product;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -26,4 +28,20 @@ public interface ProductMapper {
     int updateMainImage(@Param("id") Long id, @Param("mainImage") String mainImage);
 
     int updatePrice(@Param("id") Long id, @Param("price") java.math.BigDecimal price);
+
+    List<Product> selectByAdminCondition(@Param("query") AdminProductQueryDTO query);
+
+    long countByAdminCondition(@Param("query") AdminProductQueryDTO query);
+
+    int batchUpdateStatus(@Param("ids") List<Long> ids, @Param("status") Integer status);
+
+    int batchUpdateCategory(@Param("ids") List<Long> ids, @Param("categoryId") Long categoryId);
+
+    int batchUpdatePrice(@Param("id") Long id, @Param("price") BigDecimal price);
+
+    int insertProduct(@Param("product") Product product);
+
+    List<Product> selectByAdminConditionForExport(@Param("query") AdminProductQueryDTO query);
+
+    List<Product> selectByIds(@Param("ids") List<Long> ids);
 }
