@@ -7,15 +7,16 @@
         <result column="product_id" property="productId"/>
         <result column="quantity" property="quantity"/>
         <result column="checked" property="checked"/>
+        <result column="price_snapshot" property="priceSnapshot"/>
         <result column="created_at" property="createdAt"/>
         <result column="updated_at" property="updatedAt"/>
     </resultMap>
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO cart_item (user_id, product_id, quantity, checked)
-        VALUES (#{userId}, #{productId}, #{quantity}, #{checked})
+        INSERT INTO cart_item (user_id, product_id, quantity, checked, price_snapshot)
+        VALUES (#{userId}, #{productId}, #{quantity}, #{checked}, #{priceSnapshot})
     </insert>
     <update id="updateById">
-        UPDATE cart_item SET quantity = #{quantity}, checked = #{checked} WHERE id = #{id}
+        UPDATE cart_item SET quantity = #{quantity}, checked = #{checked}, price_snapshot = #{priceSnapshot} WHERE id = #{id}
     </update>
     <select id="selectByUserIdAndProductId" resultMap="BaseResultMap">
         SELECT * FROM cart_item WHERE user_id = #{userId} AND product_id = #{productId}

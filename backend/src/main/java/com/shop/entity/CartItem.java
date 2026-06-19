@@ -3,6 +3,7 @@ package com.shop.entity;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -18,6 +19,7 @@ public class CartItem implements Serializable {
     private Long productId;
     private Integer quantity;
     private Integer checked;
+    private BigDecimal priceSnapshot;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

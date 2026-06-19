@@ -19,4 +19,10 @@ public class CartItemVO {
     private Integer quantity;
     private Integer checked;
     private BigDecimal totalAmount;
+    private BigDecimal priceSnapshot;
+    private BigDecimal priceDiff;
+    private Boolean priceRaised;
+    private Integer status;
+    private Boolean offline;
+    private Boolean stockInsufficient;
 }

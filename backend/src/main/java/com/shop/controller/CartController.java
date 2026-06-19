@@ -43,12 +43,12 @@ public class CartController {
     }
 
     @PutMapping("/quantity")
-    public Result<Void> updateQuantity(Authentication auth, @RequestBody Map<String, Object> body) {
+    public Result<CartItemVO> updateQuantity(Authentication auth, @RequestBody Map<String, Object> body) {
         Long userId = requireUserId(auth);
         Long productId = ((Number) body.get("productId")).longValue();
         int quantity = ((Number) body.get("quantity")).intValue();
-        cartService.updateQuantity(userId, productId, quantity);
-        return Result.ok();
+        CartItemVO vo = cartService.updateQuantity(userId, productId, quantity);
+        return Result.ok(vo);
     }
 
     @PutMapping("/checked")
