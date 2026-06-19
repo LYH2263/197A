@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.shop.mapper.PriceAlertMapper">
+    <resultMap id="BaseResultMap" type="com.shop.entity.PriceAlert">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="product_id" property="productId"/>
+        <result column="target_price" property="targetPrice"/>
+        <result column="notified" property="notified"/>
+        <result column="created_at" property="createdAt"/>
+    </resultMap>
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO price_alert (user_id, product_id, target_price, notified)
+        VALUES (#{userId}, #{productId}, #{targetPrice}, #{notified})
+        ON DUPLICATE KEY UPDATE target_price = #{targetPrice}, notified = 0
+    </insert>
+    <select id="selectByUserIdAndProductId" resultMap="BaseResultMap">
+        SELECT * FROM price_alert WHERE user_id = #{userId} AND product_id = #{productId}
+    </select>
+    <update id="updateNotified">
+        UPDATE price_alert SET notified = #{notified} WHERE id = #{id}
+    </update>
+    <delete id="deleteByUserIdAndProductId">
+        DELETE FROM price_alert WHERE user_id = #{userId} AND product_id = #{productId}
+    </delete>
+    <select id="selectByUserId" resultMap="BaseResultMap">
+        SELECT * FROM price_alert WHERE user_id = #{userId} ORDER BY created_at DESC
+    </select>
+    <select id="selectUnnotifiedByProductId" resultMap="BaseResultMap">
+        SELECT * FROM price_alert
+        WHERE product_id = #{productId} AND notified = 0 AND target_price >= #{currentPrice}
+    </select>
+</mapper>

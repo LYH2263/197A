@@ -144,3 +144,34 @@ CREATE TABLE IF NOT EXISTS product_image (
 );
 CREATE INDEX IF NOT EXISTS idx_product_image_product ON product_image(product_id);
 CREATE INDEX IF NOT EXISTS idx_product_image_sort ON product_image(product_id, sort_order);
+
+CREATE TABLE IF NOT EXISTS save_for_later (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  product_id BIGINT NOT NULL,
+  quantity INT NOT NULL DEFAULT 1,
+  price_snapshot DECIMAL(12,2) NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_sfl_user_product ON save_for_later(user_id, product_id);
+
+CREATE TABLE IF NOT EXISTS price_alert (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  product_id BIGINT NOT NULL,
+  target_price DECIMAL(12,2) NOT NULL,
+  notified TINYINT NOT NULL DEFAULT 0,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_pa_user_product ON price_alert(user_id, product_id);
+
+CREATE TABLE IF NOT EXISTS notification (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  type VARCHAR(32) NOT NULL DEFAULT 'PRICE_DROP',
+  content VARCHAR(512) NOT NULL,
+  is_read TINYINT NOT NULL DEFAULT 0,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_notification_user_read ON notification(user_id, is_read);

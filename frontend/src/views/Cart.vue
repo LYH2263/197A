@@ -35,8 +35,9 @@
           <el-table-column label="小计" width="120">
             <template #default="{ row }">¥ {{ row.totalAmount }}</template>
           </el-table-column>
-          <el-table-column label="操作" width="80">
+          <el-table-column label="操作" width="140">
             <template #default="{ row }">
+              <el-button type="warning" link @click="moveToSaveForLater(row)">稍后购买</el-button>
               <el-button type="danger" link @click="remove(row)">删除</el-button>
             </template>
           </el-table-column>
@@ -120,6 +121,15 @@ async function remove(row) {
   } catch (e) {
     if (e !== 'cancel') throw e
   }
+}
+
+async function moveToSaveForLater(row) {
+  try {
+    await api.post('/save-for-later/move', { productId: row.productId })
+    items.value = items.value.filter((i) => i.productId !== row.productId)
+    userStore.cartCount = items.value.reduce((s, i) => s + (i.quantity || 0), 0)
+    userStore.saveForLaterCount = (userStore.saveForLaterCount || 0) + row.quantity
+  } catch (e) {}
 }
 
 function goCheckout() {

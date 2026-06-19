@@ -21,4 +21,6 @@ public interface ProductMapper {
     int updateStock(@Param("id") Long id, @Param("quantity") int quantity);
 
     int updateMainImage(@Param("id") Long id, @Param("mainImage") String mainImage);
+
+    int updatePrice(@Param("id") Long id, @Param("price") java.math.BigDecimal price);
 }

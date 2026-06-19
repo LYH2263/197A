@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.shop.mapper.SaveForLaterMapper">
+    <resultMap id="BaseResultMap" type="com.shop.entity.SaveForLater">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="product_id" property="productId"/>
+        <result column="quantity" property="quantity"/>
+        <result column="price_snapshot" property="priceSnapshot"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO save_for_later (user_id, product_id, quantity, price_snapshot)
+        VALUES (#{userId}, #{productId}, #{quantity}, #{priceSnapshot})
+    </insert>
+    <update id="updateById">
+        UPDATE save_for_later SET quantity = #{quantity}, price_snapshot = #{priceSnapshot} WHERE id = #{id}
+    </update>
+    <select id="selectByUserIdAndProductId" resultMap="BaseResultMap">
+        SELECT * FROM save_for_later WHERE user_id = #{userId} AND product_id = #{productId}
+    </select>
+    <select id="selectByUserId" resultMap="BaseResultMap">
+        SELECT * FROM save_for_later WHERE user_id = #{userId} ORDER BY created_at DESC
+    </select>
+    <delete id="deleteById">
+        DELETE FROM save_for_later WHERE id = #{id}
+    </delete>
+    <delete id="deleteByUserIdAndProductId">
+        DELETE FROM save_for_later WHERE user_id = #{userId} AND product_id = #{productId}
+    </delete>
+    <delete id="deleteByUserIdAndProductIds">
+        DELETE FROM save_for_later WHERE user_id = #{userId} AND product_id IN
+        <foreach collection="productIds" item="pid" open="(" separator="," close=")">
+            #{pid}
+        </foreach>
+    </delete>
+    <select id="countByUserId" resultType="int">
+        SELECT COUNT(*) FROM save_for_later WHERE user_id = #{userId}
+    </select>
+</mapper>

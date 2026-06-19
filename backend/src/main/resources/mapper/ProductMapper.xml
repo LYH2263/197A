@@ -32,4 +32,7 @@
     <update id="updateMainImage">
         UPDATE product SET main_image = #{mainImage} WHERE id = #{id}
     </update>
+    <update id="updatePrice">
+        UPDATE product SET price = #{price} WHERE id = #{id}
+    </update>
 </mapper>

@@ -6,6 +6,7 @@ export const useUserStore = defineStore('user', () => {
   const token = ref(localStorage.getItem('token') || '')
   const user = ref(null)
   const cartCount = ref(0)
+  const saveForLaterCount = ref(0)
 
   const isLoggedIn = computed(() => !!token.value)
   const isAdmin = computed(() => user.value?.role === 'admin')
@@ -32,5 +33,5 @@ export const useUserStore = defineStore('user', () => {
     user.value = null
   }
 
-  return { token, user, cartCount, isLoggedIn, isAdmin, setToken, fetchUser, logout }
+  return { token, user, cartCount, saveForLaterCount, isLoggedIn, isAdmin, setToken, fetchUser, logout }
 })

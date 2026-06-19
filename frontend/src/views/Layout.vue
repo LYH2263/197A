@@ -10,6 +10,28 @@
             购物车
             <el-badge v-if="cartCount" :value="cartCount" class="cart-badge" />
           </router-link>
+          <router-link to="/save-for-later" class="nav-link cart-link">
+            稍后购买
+            <el-badge v-if="saveForLaterCount" :value="saveForLaterCount" class="cart-badge" />
+          </router-link>
+          <el-popover placement="bottom" :width="360" trigger="click" @show="loadNotifications">
+            <template #reference>
+              <span class="nav-link cart-link" style="cursor:pointer">
+                通知
+                <el-badge v-if="unreadCount" :value="unreadCount" class="cart-badge" />
+              </span>
+            </template>
+            <div class="notification-panel">
+              <div v-if="notifications.length === 0" class="notification-empty">暂无通知</div>
+              <div v-for="n in notifications" :key="n.id" class="notification-item" :class="{ unread: n.isRead === 0 }" @click="markRead(n)">
+                <div class="notification-content">{{ n.content }}</div>
+                <div class="notification-time">{{ n.createdAt }}</div>
+              </div>
+              <div v-if="notifications.length > 0" class="notification-footer">
+                <el-button link size="small" @click="markAllRead">全部已读</el-button>
+              </div>
+            </div>
+          </el-popover>
           <template v-if="userStore.isLoggedIn">
             <router-link to="/orders" class="nav-link">我的订单</router-link>
             <router-link to="/my-address" class="nav-link">我的地址</router-link>
@@ -59,7 +81,7 @@
 </template>
 
 <script setup>
-import { onMounted, computed } from 'vue'
+import { onMounted, computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
 import api from '../api'
@@ -67,11 +89,55 @@ import { Loading, ArrowDown } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const userStore = useUserStore()
+const notifications = ref([])
+const unreadCount = ref(0)
 
 const cartCount = computed(() => {
   if (!userStore.isLoggedIn) return 0
   return userStore.cartCount ?? 0
 })
+
+const saveForLaterCount = computed(() => {
+  if (!userStore.isLoggedIn) return 0
+  return userStore.saveForLaterCount ?? 0
+})
+
+async function loadNotifications() {
+  if (!userStore.isLoggedIn) return
+  try {
+    const res = await api.get('/notification')
+    if (res.data.code === 200) {
+      notifications.value = res.data.data || []
+    }
+  } catch {}
+}
+
+async function fetchUnreadCount() {
+  if (!userStore.isLoggedIn) return
+  try {
+    const res = await api.get('/notification/unread-count')
+    if (res.data.code === 200) {
+      unreadCount.value = res.data.data || 0
+    }
+  } catch {}
+}
+
+async function markRead(n) {
+  if (n.isRead === 1) return
+  try {
+    await api.put(`/notification/${n.id}/read`)
+    n.isRead = 1
+    unreadCount.value = Math.max(0, unreadCount.value - 1)
+  } catch {}
+}
+
+async function markAllRead() {
+  try {
+    await api.put('/notification/read-all')
+    notifications.value.forEach(n => { n.isRead = 1 })
+    unreadCount.value = 0
+  } catch {}
+}
 
 onMounted(async () => {
   if (userStore.isLoggedIn) {
@@ -84,6 +150,15 @@ onMounted(async () => {
     } catch {
       userStore.cartCount = 0
     }
+    try {
+      const res = await api.get('/save-for-later/count')
+      if (res.data.code === 200) {
+        userStore.saveForLaterCount = res.data.data || 0
+      }
+    } catch {
+      userStore.saveForLaterCount = 0
+    }
+    fetchUnreadCount()
   }
 })
 
@@ -221,6 +296,55 @@ function handleCommand(cmd) {
   text-align: center;
   color: var(--color-text-muted);
   font-size: 0.875rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.notification-panel {
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.notification-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.notification-item {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.notification-item:last-child {
+  border-bottom: none;
+}
+
+.notification-item:hover {
+  background: var(--color-primary-light);
+}
+
+.notification-item.unread {
+  background: #ecf5ff;
+}
+
+.notification-content {
+  font-size: 0.875rem;
+  color: var(--color-text);
+  line-height: 1.5;
+}
+
+.notification-time {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+}
+
+.notification-footer {
+  padding: 8px 12px;
+  text-align: center;
   border-top: 1px solid var(--color-border);
 }
 </style>

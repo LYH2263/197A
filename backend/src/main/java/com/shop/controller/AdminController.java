@@ -7,7 +7,9 @@ import com.shop.dto.UserVO;
 import com.shop.entity.OrderMain;
 import com.shop.entity.ProductImage;
 import com.shop.service.AdminService;
+import com.shop.service.PriceAlertService;
 import com.shop.service.ProductImageService;
+import com.shop.mapper.ProductMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -22,6 +24,8 @@ public class AdminController {
 
     private final AdminService adminService;
     private final ProductImageService productImageService;
+    private final PriceAlertService priceAlertService;
+    private final ProductMapper productMapper;
 
     private Long requireAdminId(Authentication auth) {
         if (auth == null || !(auth.getPrincipal() instanceof Long)) {
@@ -117,13 +121,24 @@ public class AdminController {
         return Result.ok();
     }
 
-    @PutMapping("/products/{productId}/images/reorder")
-    public Result<Void> reorderImages(@PathVariable Long productId, @RequestBody Map<String, List<Long>> body) {
-        List<Long> orderedIds = body.get("orderedIds");
-        if (orderedIds == null || orderedIds.isEmpty()) {
-            return Result.fail("排序ID列表不能为空");
-        }
+    @PutMapping("/products/images/reorder")
+    public Result<Void> reorderImages(@RequestBody Map<String, Object> body) {
+        Long productId = ((Number) body.get("productId")).longValue();
+        @SuppressWarnings("unchecked")
+        List<Long> orderedIds = ((List<Number>) body.get("orderedIds")).stream()
+                .map(Number::longValue).toList();
         productImageService.reorder(productId, orderedIds);
+        return Result.ok();
+    }
+
+    @PutMapping("/products/{id}/price")
+    public Result<Void> updateProductPrice(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        java.math.BigDecimal newPrice = new java.math.BigDecimal(body.get("price").toString());
+        if (newPrice.compareTo(java.math.BigDecimal.ZERO) <= 0) {
+            return Result.fail("价格必须大于0");
+        }
+        productMapper.updatePrice(id, newPrice);
+        priceAlertService.checkAndNotify(id);
         return Result.ok();
     }
 }
