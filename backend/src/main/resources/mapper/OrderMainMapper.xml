@@ -10,12 +10,13 @@
         <result column="receiver_name" property="receiverName"/>
         <result column="receiver_phone" property="receiverPhone"/>
         <result column="receiver_address" property="receiverAddress"/>
+        <result column="shipping_address_id" property="shippingAddressId"/>
         <result column="created_at" property="createdAt"/>
         <result column="updated_at" property="updatedAt"/>
     </resultMap>
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO order_main (order_no, user_id, total_amount, status, receiver_name, receiver_phone, receiver_address)
-        VALUES (#{orderNo}, #{userId}, #{totalAmount}, #{status}, #{receiverName}, #{receiverPhone}, #{receiverAddress})
+        INSERT INTO order_main (order_no, user_id, total_amount, status, receiver_name, receiver_phone, receiver_address, shipping_address_id)
+        VALUES (#{orderNo}, #{userId}, #{totalAmount}, #{status}, #{receiverName}, #{receiverPhone}, #{receiverAddress}, #{shippingAddressId})
     </insert>
     <select id="selectById" resultMap="BaseResultMap">
         SELECT * FROM order_main WHERE id = #{id}
@@ -29,4 +30,10 @@
     <update id="updateStatus">
         UPDATE order_main SET status = #{status} WHERE id = #{id}
     </update>
+    <select id="countPendingByAddressId" resultType="int">
+        SELECT COUNT(*) FROM order_main
+        WHERE shipping_address_id = #{addressId}
+          AND user_id = #{userId}
+          AND status IN (0, 1, 2)
+    </select>
 </mapper>

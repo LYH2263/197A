@@ -12,6 +12,7 @@
           </router-link>
           <template v-if="userStore.isLoggedIn">
             <router-link to="/orders" class="nav-link">我的订单</router-link>
+            <router-link to="/my-address" class="nav-link">我的地址</router-link>
             <router-link to="/my-reviews" class="nav-link">我的评价</router-link>
             <template v-if="userStore.isAdmin">
               <router-link to="/admin/users" class="nav-link">用户管理</router-link>

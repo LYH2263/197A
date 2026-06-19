@@ -10,6 +10,7 @@ const routes = [
       { path: 'cart', name: 'Cart', component: () => import('../views/Cart.vue'), meta: { requiresAuth: true } },
       { path: 'orders', name: 'OrderList', component: () => import('../views/OrderList.vue'), meta: { requiresAuth: true } },
       { path: 'orders/:id', name: 'OrderDetail', component: () => import('../views/OrderDetail.vue'), meta: { requiresAuth: true } },
+      { path: 'my-address', name: 'MyAddress', component: () => import('../views/MyAddress.vue'), meta: { requiresAuth: true } },
       { path: 'my-reviews', name: 'MyReviews', component: () => import('../views/MyReviews.vue'), meta: { requiresAuth: true } },
       { path: 'admin/users', name: 'AdminUsers', component: () => import('../views/AdminUsers.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
       { path: 'admin/reviews', name: 'AdminReviews', component: () => import('../views/AdminReviews.vue'), meta: { requiresAuth: true, requiresAdmin: true } },

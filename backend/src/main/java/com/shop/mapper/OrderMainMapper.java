@@ -21,4 +21,6 @@ public interface OrderMainMapper {
     List<OrderMain> selectByUserId(@Param("userId") Long userId);
 
     int updateStatus(@Param("id") Long id, @Param("status") Integer status);
+
+    int countPendingByAddressId(@Param("addressId") Long addressId, @Param("userId") Long userId);
 }
