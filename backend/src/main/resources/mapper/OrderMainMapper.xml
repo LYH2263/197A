@@ -11,6 +11,11 @@
         <result column="receiver_phone" property="receiverPhone"/>
         <result column="receiver_address" property="receiverAddress"/>
         <result column="shipping_address_id" property="shippingAddressId"/>
+        <result column="logistics_company" property="logisticsCompany"/>
+        <result column="tracking_no" property="trackingNo"/>
+        <result column="shipping_remark" property="shippingRemark"/>
+        <result column="shipped_at" property="shippedAt"/>
+        <result column="completed_at" property="completedAt"/>
         <result column="created_at" property="createdAt"/>
         <result column="updated_at" property="updatedAt"/>
     </resultMap>
@@ -35,5 +40,26 @@
         WHERE shipping_address_id = #{addressId}
           AND user_id = #{userId}
           AND status IN (0, 1, 2)
+    </select>
+    <update id="updateShipInfo">
+        UPDATE order_main
+        SET status = #{status},
+            logistics_company = #{logisticsCompany},
+            tracking_no = #{trackingNo},
+            shipping_remark = #{shippingRemark},
+            shipped_at = #{shippedAt}
+        WHERE id = #{id}
+    </update>
+    <update id="updateReceive">
+        UPDATE order_main
+        SET status = #{status},
+            completed_at = #{completedAt}
+        WHERE id = #{id}
+    </update>
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT * FROM order_main ORDER BY id DESC
+    </select>
+    <select id="selectByStatus" resultMap="BaseResultMap">
+        SELECT * FROM order_main WHERE status = #{status} ORDER BY id DESC
     </select>
 </mapper>

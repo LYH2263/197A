@@ -60,6 +60,11 @@ CREATE TABLE IF NOT EXISTS order_main (
   receiver_phone VARCHAR(20),
   receiver_address VARCHAR(256),
   shipping_address_id BIGINT,
+  logistics_company VARCHAR(64),
+  tracking_no VARCHAR(64),
+  shipping_remark VARCHAR(256),
+  shipped_at TIMESTAMP,
+  completed_at TIMESTAMP,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -100,4 +105,31 @@ CREATE TABLE IF NOT EXISTS shipping_address (
   is_disabled TINYINT NOT NULL DEFAULT 0,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS order_operation_log (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  order_id BIGINT NOT NULL,
+  order_no VARCHAR(32) NOT NULL,
+  operator_id BIGINT,
+  operator_name VARCHAR(64),
+  operator_role VARCHAR(20),
+  operation VARCHAR(32) NOT NULL,
+  old_status TINYINT,
+  new_status TINYINT,
+  remark VARCHAR(512),
+  extra_info CLOB,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS after_sale_intent (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  order_id BIGINT NOT NULL,
+  order_no VARCHAR(32) NOT NULL,
+  user_id BIGINT NOT NULL,
+  intent_source VARCHAR(32) DEFAULT 'DETAIL',
+  triggered_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  handled TINYINT NOT NULL DEFAULT 0,
+  handled_at TIMESTAMP,
+  remark VARCHAR(512)
 );

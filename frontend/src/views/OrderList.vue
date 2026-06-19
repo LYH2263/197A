@@ -9,25 +9,62 @@
       >
         <div class="order-card-header">
           <span class="order-no">订单号：{{ order.orderNo }}</span>
-          <el-tag :type="statusType(order.status)" size="small" class="order-tag">
+          <el-tag :type="statusType(order.status)" effect="light" size="small" class="order-tag">
             {{ statusText(order.status) }}
           </el-tag>
         </div>
-        <p class="order-amount">合计：¥ {{ order.totalAmount }}</p>
+        <p class="order-amount"><strong>合计：</strong>¥ {{ order.totalAmount }}</p>
         <p class="order-receiver">
-          收货人：{{ order.receiverName }} · {{ order.receiverPhone }} · {{ order.receiverAddress }}
+          <strong>收货人：</strong>{{ order.receiverName }} · {{ order.receiverPhone }} · {{ order.receiverAddress }}
         </p>
-        <p class="order-time">下单时间：{{ order.createdAt }}</p>
+        <template v-if="order.status >= 2 && order.logisticsCompany">
+          <div class="order-logistics content-card-sub">
+            <p><strong>物流公司：</strong>{{ order.logisticsCompany }}</p>
+            <p><strong>运单号：</strong>{{ order.trackingNo }}
+              <el-button link type="primary" size="small" @click="copyTracking(order.trackingNo)" style="margin-left:8px">复制</el-button>
+            </p>
+            <p v-if="order.shippingRemark"><strong>发货备注：</strong>{{ order.shippingRemark }}</p>
+            <p v-if="order.shippedAt"><strong>发货时间：</strong>{{ order.shippedAt }}</p>
+          </div>
+        </template>
+        <p class="order-time"><strong>下单时间：</strong>{{ order.createdAt }}</p>
+        <p v-if="order.status === 3 && order.completedAt" class="order-time">
+          <strong>完成时间：</strong>{{ order.completedAt }}
+        </p>
         <div class="order-actions">
           <el-button size="small" @click="$router.push(`/orders/${order.id}`)">查看详情</el-button>
-          <template v-if="order.status >= 1 && order.status <= 3">
-            <el-button type="primary" size="small" @click="$router.push(`/orders/${order.id}`)">
-              去评价
-            </el-button>
-          </template>
+
           <template v-if="order.status === 0">
             <el-button type="primary" size="small" @click="pay(order.id)">去支付</el-button>
             <el-button size="small" @click="cancel(order.id)">取消订单</el-button>
+          </template>
+
+          <template v-if="order.status === 1">
+            <el-button size="small" disabled>等待发货</el-button>
+          </template>
+
+          <template v-if="order.status === 2">
+            <el-button type="primary" size="small" @click="viewLogistics(order)">查看物流</el-button>
+            <el-button type="success" size="small" @click="receive(order.id)">确认收货</el-button>
+          </template>
+
+          <template v-if="order.status === 3">
+            <el-button
+              v-if="canReview(order.status)"
+              type="primary"
+              size="small"
+              @click="$router.push(`/orders/${order.id}`)"
+            >
+              去评价
+            </el-button>
+            <el-button
+              v-if="showAfterSale(order)"
+              type="warning"
+              size="small"
+              @click="applyAfterSale(order, 'LIST')"
+            >
+              申请售后
+            </el-button>
           </template>
         </div>
       </div>
@@ -188,6 +225,28 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <el-dialog
+      v-model="showLogisticsDialog"
+      title="物流信息"
+      width="500px"
+      destroy-on-close
+    >
+      <div v-if="currentLogistics" class="logistics-info">
+        <el-descriptions :column="1" border>
+          <el-descriptions-item label="物流公司">{{ currentLogistics.logisticsCompany }}</el-descriptions-item>
+          <el-descriptions-item label="运单号">
+            {{ currentLogistics.trackingNo }}
+            <el-button link type="primary" size="small" @click="copyTracking(currentLogistics.trackingNo)" style="margin-left:8px">复制</el-button>
+          </el-descriptions-item>
+          <el-descriptions-item label="发货备注">{{ currentLogistics.shippingRemark || '无' }}</el-descriptions-item>
+          <el-descriptions-item label="发货时间">{{ currentLogistics.shippedAt || '-' }}</el-descriptions-item>
+        </el-descriptions>
+        <el-alert type="info" show-icon style="margin-top:16px" class="logistics-alert">
+          <template #title>物流查询服务开发中，实际项目可对接快递100/菜鸟等API</template>
+        </el-alert>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -211,6 +270,9 @@ const addresses = ref([])
 const selectedAddress = ref(null)
 const pendingPickAddress = ref(null)
 
+const showLogisticsDialog = ref(false)
+const currentLogistics = ref(null)
+
 const manualForm = reactive({
   receiverName: '',
   receiverPhone: '',
@@ -220,8 +282,34 @@ const manualForm = reactive({
   saveToAddressBook: false,
 })
 
-const statusText = (s) => ({ 0: '待付款', 1: '已付款', 2: '已发货', 3: '已完成', 4: '已取消' })[s] || '未知'
-const statusType = (s) => ({ 0: 'warning', 1: 'primary', 2: 'info', 3: 'success', 4: 'info' })[s] || 'info'
+const STATUS_TEXT = { 0: '待付款', 1: '已付款', 2: '已发货', 3: '已完成', 4: '已取消' }
+const STATUS_TYPE = {
+  0: 'warning',
+  1: 'primary',
+  2: '',
+  3: 'success',
+  4: 'info',
+}
+
+function statusText(s) {
+  return STATUS_TEXT[s] ?? '未知'
+}
+function statusType(s) {
+  return STATUS_TYPE[s] ?? 'info'
+}
+
+function canReview(status) {
+  return status >= 1 && status <= 3
+}
+
+function showAfterSale(order) {
+  if (order.status !== 3) return false
+  if (!order.completedAt) return false
+  const completedAt = new Date(order.completedAt.replace(/-/g, '/'))
+  const now = new Date()
+  const diffDays = (now - completedAt) / (1000 * 60 * 60 * 24)
+  return diffDays <= 7
+}
 
 async function load() {
   loading.value = true
@@ -246,6 +334,40 @@ async function cancel(orderId) {
     await api.post(`/orders/${orderId}/cancel`)
     ElMessage.success('已取消')
     load()
+  } catch (e) {}
+}
+
+async function receive(orderId) {
+  try {
+    await api.post(`/orders/${orderId}/receive`)
+    ElMessage.success('已确认收货')
+    load()
+  } catch (e) {}
+}
+
+function copyTracking(no) {
+  if (!no) return
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(no).then(() => ElMessage.success('运单号已复制'))
+  } else {
+    const ta = document.createElement('textarea')
+    ta.value = no
+    document.body.appendChild(ta)
+    ta.select()
+    try { document.execCommand('copy'); ElMessage.success('运单号已复制') } catch {}
+    document.body.removeChild(ta)
+  }
+}
+
+function viewLogistics(order) {
+  currentLogistics.value = order
+  showLogisticsDialog.value = true
+}
+
+async function applyAfterSale(order, source) {
+  try {
+    await api.post(`/orders/${order.id}/after-sale-intent`, { source })
+    router.push({ name: 'AfterSalePlaceholder', params: { id: order.id } })
   } catch (e) {}
 }
 
@@ -374,32 +496,69 @@ onMounted(load)
 
 .order-tag {
   border-radius: 6px;
+  font-weight: 500;
+}
+
+.order-amount,
+.order-receiver,
+.order-time {
+  margin: 0 0 4px 0;
+  line-height: 1.8;
+  font-size: 0.9375rem;
 }
 
 .order-amount {
-  font-weight: 600;
-  color: var(--color-text);
-  margin-bottom: 4px;
   font-size: 1rem;
+  color: var(--color-text);
+}
+
+.order-amount strong {
+  font-size: 0.9375rem;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.order-receiver strong,
+.order-time strong {
+  color: var(--color-text-secondary);
+  font-weight: 500;
 }
 
 .order-receiver {
-  font-size: 0.9375rem;
   color: var(--color-text-secondary);
-  margin: 0 0 4px 0;
-  line-height: 1.6;
 }
 
 .order-time {
-  font-size: 0.875rem;
   color: var(--color-text-muted);
-  margin-bottom: 16px;
+  font-size: 0.875rem;
+  margin-bottom: 12px;
+}
+
+.order-logistics {
+  margin: 8px 0 12px 0;
+  padding: 12px 16px;
+  background: var(--color-primary-lightest);
+  border: 1px solid var(--color-primary-light);
+  border-radius: var(--radius);
+}
+
+.order-logistics p {
+  margin: 4px 0;
+  font-size: 0.9375rem;
+  color: var(--color-text);
+}
+
+.order-logistics strong {
+  color: var(--color-text-secondary);
+  font-weight: 500;
 }
 
 .order-actions {
   display: flex;
   gap: 8px;
-  padding-top: 4px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--color-border);
+  flex-wrap: wrap;
 }
 
 .checkout-body {
@@ -573,5 +732,13 @@ onMounted(load)
   border-top: 1px dashed var(--color-border);
   display: flex;
   justify-content: flex-end;
+}
+
+.logistics-info {
+  padding: 4px 0;
+}
+
+.logistics-alert {
+  --el-alert-padding: 10px 12px;
 }
 </style>

@@ -16,6 +16,7 @@
             <router-link to="/my-reviews" class="nav-link">我的评价</router-link>
             <template v-if="userStore.isAdmin">
               <router-link to="/admin/users" class="nav-link">用户管理</router-link>
+              <router-link to="/admin/orders/pending-ship" class="nav-link">待发货订单</router-link>
               <router-link to="/admin/reviews" class="nav-link">评价管理</router-link>
             </template>
             <el-dropdown @command="handleCommand" trigger="click">

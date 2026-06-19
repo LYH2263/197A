@@ -23,6 +23,11 @@ public class OrderMain implements Serializable {
     private String receiverPhone;
     private String receiverAddress;
     private Long shippingAddressId;
+    private String logisticsCompany;
+    private String trackingNo;
+    private String shippingRemark;
+    private LocalDateTime shippedAt;
+    private LocalDateTime completedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

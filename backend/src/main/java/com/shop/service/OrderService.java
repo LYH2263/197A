@@ -1,16 +1,11 @@
 package com.shop.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.shop.common.OrderStatus;
 import com.shop.dto.OrderCreateRequest;
-import com.shop.entity.CartItem;
-import com.shop.entity.OrderItem;
-import com.shop.entity.OrderMain;
-import com.shop.entity.Product;
-import com.shop.entity.ShippingAddress;
-import com.shop.mapper.CartItemMapper;
-import com.shop.mapper.OrderItemMapper;
-import com.shop.mapper.OrderMainMapper;
-import com.shop.mapper.ProductMapper;
-import com.shop.mapper.ShippingAddressMapper;
+import com.shop.entity.*;
+import com.shop.mapper.*;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,7 +15,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 
@@ -31,12 +28,44 @@ public class OrderService {
     private static final Logger log = LoggerFactory.getLogger(OrderService.class);
     private static final AtomicInteger SEQ = new AtomicInteger(0);
     private static final Pattern PHONE_PATTERN = Pattern.compile("^1[3-9]\\d{9}$");
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final OrderMainMapper orderMainMapper;
     private final OrderItemMapper orderItemMapper;
     private final CartItemMapper cartItemMapper;
     private final ProductMapper productMapper;
     private final ShippingAddressMapper shippingAddressMapper;
+    private final OrderOperationLogMapper orderOperationLogMapper;
+    private final AfterSaleIntentMapper afterSaleIntentMapper;
+
+    private void writeLog(Long orderId, String orderNo, Long operatorId, String operatorName,
+                          String operatorRole, String operation, Integer oldStatus, Integer newStatus,
+                          String remark, Map<String, Object> extra) {
+        try {
+            OrderOperationLog opl = new OrderOperationLog();
+            opl.setOrderId(orderId);
+            opl.setOrderNo(orderNo);
+            opl.setOperatorId(operatorId);
+            opl.setOperatorName(operatorName);
+            opl.setOperatorRole(operatorRole);
+            opl.setOperation(operation);
+            opl.setOldStatus(oldStatus);
+            opl.setNewStatus(newStatus);
+            opl.setRemark(remark);
+            if (extra != null && !extra.isEmpty()) {
+                try {
+                    opl.setExtraInfo(OBJECT_MAPPER.writeValueAsString(extra));
+                } catch (JsonProcessingException ignored) {}
+            }
+            orderOperationLogMapper.insert(opl);
+        } catch (Exception e) {
+            log.warn("写入订单操作日志失败", e);
+        }
+    }
+
+    private static String resolveUserName(Long userId) {
+        return "user-" + userId;
+    }
 
     @Transactional(rollbackFor = Exception.class)
     public OrderMain create(Long userId, OrderCreateRequest req) {
@@ -119,7 +148,7 @@ public class OrderService {
         order.setOrderNo(orderNo);
         order.setUserId(userId);
         order.setTotalAmount(totalAmount);
-        order.setStatus(0);
+        order.setStatus(OrderStatus.PENDING_PAYMENT);
         order.setReceiverName(receiverName);
         order.setReceiverPhone(receiverPhone);
         order.setReceiverAddress(fullAddress);
@@ -139,6 +168,8 @@ public class OrderService {
             orderItemMapper.insert(oi);
             cartItemMapper.deleteByUserIdAndProductId(userId, item.getProductId());
         }
+        writeLog(order.getId(), orderNo, userId, resolveUserName(userId), "user",
+                OrderStatus.OP_CREATE, null, OrderStatus.PENDING_PAYMENT, "创建订单", null);
         log.info("Order created: orderNo={}, userId={}", orderNo, userId);
         return orderMainMapper.selectById(order.getId());
     }
@@ -161,10 +192,14 @@ public class OrderService {
         if (order == null || !order.getUserId().equals(userId)) {
             throw new IllegalArgumentException("订单不存在");
         }
-        if (order.getStatus() != 0) {
-            throw new IllegalArgumentException("订单状态不允许支付");
+        int from = order.getStatus();
+        int to = OrderStatus.PAID;
+        if (!OrderStatus.canTransition(from, to)) {
+            throw new IllegalArgumentException("订单状态不允许支付：当前 " + OrderStatus.text(from));
         }
-        orderMainMapper.updateStatus(orderId, 1);
+        orderMainMapper.updateStatus(orderId, to);
+        writeLog(orderId, order.getOrderNo(), userId, resolveUserName(userId), "user",
+                OrderStatus.OP_PAY, from, to, "支付订单", null);
         log.info("Order paid: orderId={}", orderId);
     }
 
@@ -174,11 +209,58 @@ public class OrderService {
         if (order == null || !order.getUserId().equals(userId)) {
             throw new IllegalArgumentException("订单不存在");
         }
-        if (order.getStatus() != 0) {
-            throw new IllegalArgumentException("仅待付款订单可取消");
+        int from = order.getStatus();
+        int to = OrderStatus.CANCELLED;
+        if (!OrderStatus.canTransition(from, to)) {
+            throw new IllegalArgumentException("当前状态不允许取消：" + OrderStatus.text(from));
         }
-        orderMainMapper.updateStatus(orderId, 4);
+        orderMainMapper.updateStatus(orderId, to);
+        writeLog(orderId, order.getOrderNo(), userId, resolveUserName(userId), "user",
+                OrderStatus.OP_CANCEL, from, to, "取消订单", null);
         log.info("Order cancelled: orderId={}", orderId);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void receive(Long orderId, Long userId) {
+        OrderMain order = orderMainMapper.selectById(orderId);
+        if (order == null || !order.getUserId().equals(userId)) {
+            throw new IllegalArgumentException("订单不存在");
+        }
+        int from = order.getStatus();
+        int to = OrderStatus.COMPLETED;
+        if (!OrderStatus.canTransition(from, to)) {
+            throw new IllegalArgumentException("当前状态不允许确认收货：" + OrderStatus.text(from));
+        }
+        orderMainMapper.updateReceive(orderId, to, LocalDateTime.now());
+        writeLog(orderId, order.getOrderNo(), userId, resolveUserName(userId), "user",
+                OrderStatus.OP_RECEIVE, from, to, "用户确认收货", null);
+        log.info("Order received: orderId={}", orderId);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public Long recordAfterSaleIntent(Long orderId, Long userId, String source) {
+        OrderMain order = orderMainMapper.selectById(orderId);
+        if (order == null || !order.getUserId().equals(userId)) {
+            throw new IllegalArgumentException("订单不存在");
+        }
+        if (order.getStatus() != OrderStatus.COMPLETED) {
+            throw new IllegalArgumentException("仅已完成订单可申请售后：当前 " + OrderStatus.text(order.getStatus()));
+        }
+        LocalDateTime completedAt = order.getCompletedAt();
+        if (completedAt != null && completedAt.plusDays(7).isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("已超过7天售后申请期限");
+        }
+        AfterSaleIntent intent = new AfterSaleIntent();
+        intent.setOrderId(orderId);
+        intent.setOrderNo(order.getOrderNo());
+        intent.setUserId(userId);
+        intent.setIntentSource(source == null ? "DETAIL" : source.toUpperCase());
+        afterSaleIntentMapper.insert(intent);
+        writeLog(orderId, order.getOrderNo(), userId, resolveUserName(userId), "user",
+                OrderStatus.OP_AFTER_SALE_INTENT, order.getStatus(), order.getStatus(),
+                "用户点击申请售后，来源=" + intent.getIntentSource(), null);
+        log.info("After-sale intent recorded: orderId={}, userId={}", orderId, userId);
+        return intent.getId();
     }
 
     public List<OrderItem> listItems(Long orderId) {

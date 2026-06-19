@@ -13,9 +13,6 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
-/**
- * 订单接口
- */
 @RestController
 @RequestMapping("/orders")
 @RequiredArgsConstructor
@@ -75,5 +72,22 @@ public class OrderController {
         Long userId = requireUserId(auth);
         orderService.cancel(id, userId);
         return Result.ok();
+    }
+
+    @PostMapping("/{id}/receive")
+    public Result<Void> receive(Authentication auth, @PathVariable Long id) {
+        Long userId = requireUserId(auth);
+        orderService.receive(id, userId);
+        return Result.ok();
+    }
+
+    @PostMapping("/{id}/after-sale-intent")
+    public Result<Map<String, Object>> afterSaleIntent(Authentication auth,
+                                                       @PathVariable Long id,
+                                                       @RequestBody(required = false) Map<String, Object> body) {
+        Long userId = requireUserId(auth);
+        String source = (body != null && body.get("source") != null) ? String.valueOf(body.get("source")) : "DETAIL";
+        Long intentId = orderService.recordAfterSaleIntent(id, userId, source);
+        return Result.ok(Map.of("intentId", intentId));
     }
 }

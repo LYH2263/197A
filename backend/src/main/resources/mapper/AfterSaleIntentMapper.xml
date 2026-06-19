@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.shop.mapper.AfterSaleIntentMapper">
+    <resultMap id="BaseResultMap" type="com.shop.entity.AfterSaleIntent">
+        <id column="id" property="id"/>
+        <result column="order_id" property="orderId"/>
+        <result column="order_no" property="orderNo"/>
+        <result column="user_id" property="userId"/>
+        <result column="intent_source" property="intentSource"/>
+        <result column="triggered_at" property="triggeredAt"/>
+        <result column="handled" property="handled"/>
+        <result column="handled_at" property="handledAt"/>
+        <result column="remark" property="remark"/>
+    </resultMap>
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO after_sale_intent (order_id, order_no, user_id, intent_source)
+        VALUES (#{orderId}, #{orderNo}, #{userId}, #{intentSource})
+    </insert>
+</mapper>

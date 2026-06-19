@@ -23,4 +23,19 @@ public interface OrderMainMapper {
     int updateStatus(@Param("id") Long id, @Param("status") Integer status);
 
     int countPendingByAddressId(@Param("addressId") Long addressId, @Param("userId") Long userId);
+
+    int updateShipInfo(@Param("id") Long id,
+                       @Param("status") Integer status,
+                       @Param("logisticsCompany") String logisticsCompany,
+                       @Param("trackingNo") String trackingNo,
+                       @Param("shippingRemark") String shippingRemark,
+                       @Param("shippedAt") java.time.LocalDateTime shippedAt);
+
+    int updateReceive(@Param("id") Long id,
+                      @Param("status") Integer status,
+                      @Param("completedAt") java.time.LocalDateTime completedAt);
+
+    List<OrderMain> selectAll();
+
+    List<OrderMain> selectByStatus(@Param("status") Integer status);
 }
