@@ -150,4 +150,25 @@
             NOW()
         )
     </insert>
+
+    <select id="selectByCategoryOrderBySales" resultMap="BaseResultMap">
+        SELECT * FROM product
+        WHERE category_id = #{categoryId} AND status = 1 AND id != #{excludeId}
+        ORDER BY sales_count DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectRandomByCategory" resultMap="BaseResultMap">
+        SELECT * FROM product
+        WHERE category_id = #{categoryId} AND status = 1 AND id != #{excludeId}
+        ORDER BY RAND()
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectTopBySales" resultMap="BaseResultMap">
+        SELECT * FROM product
+        WHERE status = 1
+        ORDER BY sales_count DESC
+        LIMIT #{limit}
+    </select>
 </mapper>

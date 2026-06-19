@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.shop.mapper.SiteConfigMapper">
+    <select id="selectByKey" resultType="com.shop.entity.SiteConfig">
+        SELECT id, config_key, config_value, updated_at
+        FROM site_config
+        WHERE config_key = #{configKey}
+    </select>
+
+    <insert id="upsert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO site_config (config_key, config_value)
+        VALUES (#{configKey}, #{configValue})
+        ON DUPLICATE KEY UPDATE config_value = #{configValue}, updated_at = NOW()
+    </insert>
+</mapper>

@@ -6,8 +6,10 @@ import com.shop.entity.Product;
 import com.shop.entity.ProductImage;
 import com.shop.service.ProductImageService;
 import com.shop.service.ProductService;
+import com.shop.service.BrowseHistoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -21,6 +23,7 @@ public class ProductController {
 
     private final ProductService productService;
     private final ProductImageService productImageService;
+    private final BrowseHistoryService browseHistoryService;
 
     @GetMapping
     public Result<List<Product>> list(
@@ -47,11 +50,16 @@ public class ProductController {
     }
 
     @GetMapping("/{id}")
-    public Result<Product> getById(@PathVariable Long id) {
+    public Result<Product> getById(@PathVariable Long id, Authentication auth) {
         Product p = productService.getById(id);
         if (p == null) {
             return Result.fail(404, "商品不存在");
         }
+        Long userId = null;
+        if (auth != null && auth.getPrincipal() instanceof Long uid) {
+            userId = uid;
+        }
+        browseHistoryService.recordView(userId, p.getId(), p.getCategoryId());
         return Result.ok(p);
     }
 

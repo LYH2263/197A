@@ -48,6 +48,30 @@
         </div>
       </div>
     </section>
+
+    <section v-if="guessYouLikeProducts.length > 0" class="section recommend-section">
+      <h2 class="section-title">猜你喜欢</h2>
+      <div class="recommend-scroll">
+        <div
+          v-for="p in guessYouLikeProducts"
+          :key="p.id"
+          class="recommend-card"
+          @click="$router.push(`/products/${p.id}`)"
+        >
+          <div class="recommend-card-img">
+            <img
+              :src="p.mainImage || '/images/default-product.svg'"
+              alt=""
+              @error="$event.target.src = '/images/default-product.svg'"
+            />
+          </div>
+          <div class="recommend-card-info">
+            <div class="recommend-card-name">{{ p.name }}</div>
+            <div class="recommend-card-price">¥ {{ p.price }}</div>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -58,6 +82,7 @@ import api from '../api'
 const loading = ref(true)
 const categories = ref([])
 const products = ref([])
+const guessYouLikeProducts = ref([])
 
 onMounted(async () => {
   try {
@@ -67,6 +92,10 @@ onMounted(async () => {
     ])
     if (catRes.data.code === 200) categories.value = (catRes.data.data || []).filter(c => c.parentId === 0)
     if (prodRes.data.code === 200) products.value = (prodRes.data.data || []).slice(0, 8)
+
+    api.get('/recommendations/home').then(res => {
+      if (res.data.code === 200) guessYouLikeProducts.value = res.data.data || []
+    }).catch(() => {})
   } finally {
     loading.value = false
   }
@@ -228,5 +257,102 @@ onMounted(async () => {
   font-weight: 700;
   color: var(--color-primary);
   margin-top: 8px;
+}
+
+.recommend-section {
+  margin-top: 8px;
+}
+
+.recommend-scroll {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.recommend-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.recommend-scroll::-webkit-scrollbar-track {
+  background: var(--color-bg);
+  border-radius: 3px;
+}
+
+.recommend-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+.recommend-card {
+  min-width: 180px;
+  max-width: 180px;
+  cursor: pointer;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  scroll-snap-align: start;
+  transition: all var(--transition);
+  flex-shrink: 0;
+}
+
+.recommend-card:hover {
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-2px);
+}
+
+.recommend-card-img {
+  height: 180px;
+  background: var(--color-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.recommend-card-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.recommend-card:hover .recommend-card-img img {
+  transform: scale(1.04);
+}
+
+.recommend-card-info {
+  padding: 12px;
+}
+
+.recommend-card-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recommend-card-price {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  margin-top: 6px;
+}
+
+@media (max-width: 768px) {
+  .recommend-card {
+    min-width: 150px;
+    max-width: 150px;
+  }
+
+  .recommend-card-img {
+    height: 150px;
+  }
 }
 </style>

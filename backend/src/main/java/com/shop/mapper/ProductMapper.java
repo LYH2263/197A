@@ -44,4 +44,14 @@ public interface ProductMapper {
     List<Product> selectByAdminConditionForExport(@Param("query") AdminProductQueryDTO query);
 
     List<Product> selectByIds(@Param("ids") List<Long> ids);
+
+    List<Product> selectByCategoryOrderBySales(@Param("categoryId") Long categoryId,
+                                               @Param("excludeId") Long excludeId,
+                                               @Param("limit") int limit);
+
+    List<Product> selectRandomByCategory(@Param("categoryId") Long categoryId,
+                                         @Param("excludeId") Long excludeId,
+                                         @Param("limit") int limit);
+
+    List<Product> selectTopBySales(@Param("limit") int limit);
 }

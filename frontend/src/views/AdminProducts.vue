@@ -48,6 +48,7 @@
         </el-button>
       </div>
       <div class="toolbar-right">
+        <el-button @click="loadRecommendConfig(); showRecommendDialog = true">推荐位配置</el-button>
         <el-upload
           ref="uploadRef"
           :show-file-list="false"
@@ -183,6 +184,29 @@
         <el-button type="primary" @click="showImportResult = false; loadData()">确定</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="showRecommendDialog" title="推荐位配置" width="500px">
+      <el-form :model="recommendForm" label-width="140px">
+        <el-divider content-position="left">猜你喜欢</el-divider>
+        <el-form-item label="启用">
+          <el-switch v-model="recommendForm.guessYouLikeEnabled" />
+        </el-form-item>
+        <el-form-item label="展示数量">
+          <el-input-number v-model="recommendForm.guessYouLikeCount" :min="1" :max="20" />
+        </el-form-item>
+        <el-divider content-position="left">看了又看</el-divider>
+        <el-form-item label="启用">
+          <el-switch v-model="recommendForm.viewedAlsoViewEnabled" />
+        </el-form-item>
+        <el-form-item label="展示数量">
+          <el-input-number v-model="recommendForm.viewedAlsoViewCount" :min="1" :max="20" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showRecommendDialog = false">取消</el-button>
+        <el-button type="primary" :loading="recommendSaving" @click="saveRecommendConfig">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -199,6 +223,8 @@ const selectedIds = ref([])
 const showCategoryDialog = ref(false)
 const showPriceDialog = ref(false)
 const showImportResult = ref(false)
+const showRecommendDialog = ref(false)
+const recommendSaving = ref(false)
 const targetCategoryId = ref(null)
 const priceRatio = ref(null)
 const uploadRef = ref(null)
@@ -221,6 +247,13 @@ const pagination = reactive({
   pageNum: 1,
   pageSize: 10,
   total: 0
+})
+
+const recommendForm = reactive({
+  guessYouLikeEnabled: true,
+  guessYouLikeCount: 6,
+  viewedAlsoViewEnabled: true,
+  viewedAlsoViewCount: 6,
 })
 
 const categoryMap = computed(() => {
@@ -446,6 +479,30 @@ function downloadTemplate() {
   link.download = '商品导入模板.csv'
   link.click()
   URL.revokeObjectURL(url)
+}
+
+async function loadRecommendConfig() {
+  try {
+    const res = await api.get('/recommendations/config')
+    if (res.data.code === 200 && res.data.data) {
+      Object.assign(recommendForm, res.data.data)
+    }
+  } catch (e) {
+    console.error('加载推荐配置失败', e)
+  }
+}
+
+async function saveRecommendConfig() {
+  recommendSaving.value = true
+  try {
+    await api.put('/admin/recommendations/config', recommendForm)
+    ElMessage.success('推荐配置已保存')
+    showRecommendDialog.value = false
+  } catch (e) {
+    console.error('保存推荐配置失败', e)
+  } finally {
+    recommendSaving.value = false
+  }
 }
 </script>
 

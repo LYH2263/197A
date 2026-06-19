@@ -169,6 +169,54 @@
         </div>
       </section>
 
+      <section v-if="recommendConfig.viewedAlsoViewEnabled && viewedAlsoViewProducts.length > 0" class="recommend-section">
+        <h3 class="recommend-title">看了又看</h3>
+        <div class="recommend-scroll">
+          <div
+            v-for="p in viewedAlsoViewProducts"
+            :key="p.id"
+            class="recommend-card"
+            @click="goToProduct(p.id)"
+          >
+            <div class="recommend-card-img">
+              <img
+                :src="p.mainImage || '/images/default-product.svg'"
+                alt=""
+                @error="$event.target.src = '/images/default-product.svg'"
+              />
+            </div>
+            <div class="recommend-card-info">
+              <div class="recommend-card-name">{{ p.name }}</div>
+              <div class="recommend-card-price">¥ {{ p.price }}</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section v-if="recommendConfig.guessYouLikeEnabled && guessYouLikeProducts.length > 0" class="recommend-section">
+        <h3 class="recommend-title">猜你喜欢</h3>
+        <div class="recommend-scroll">
+          <div
+            v-for="p in guessYouLikeProducts"
+            :key="p.id"
+            class="recommend-card"
+            @click="goToProduct(p.id)"
+          >
+            <div class="recommend-card-img">
+              <img
+                :src="p.mainImage || '/images/default-product.svg'"
+                alt=""
+                @error="$event.target.src = '/images/default-product.svg'"
+              />
+            </div>
+            <div class="recommend-card-info">
+              <div class="recommend-card-name">{{ p.name }}</div>
+              <div class="recommend-card-price">¥ {{ p.price }}</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <el-dialog
         v-model="reviewVisible"
         :title="reviewDialogTitle"
@@ -247,7 +295,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Loading, ArrowLeft, ArrowRight, ChatDotRound, ChatLineSquare, OfficeBuilding, Plus } from '@element-plus/icons-vue'
@@ -309,6 +357,15 @@ const galleryImages = computed(() => {
   return []
 })
 
+const guessYouLikeProducts = ref([])
+const viewedAlsoViewProducts = ref([])
+const recommendConfig = reactive({
+  guessYouLikeEnabled: true,
+  guessYouLikeCount: 6,
+  viewedAlsoViewEnabled: true,
+  viewedAlsoViewCount: 6,
+})
+
 const currentIndex = ref(0)
 
 const currentImage = computed(() => {
@@ -346,6 +403,17 @@ function onTouchEnd(e) {
 
 onMounted(async () => {
   window.addEventListener('keydown', onKeydown)
+  await loadProduct()
+})
+
+watch(productId, async () => {
+  await loadProduct()
+})
+
+async function loadProduct() {
+  loading.value = true
+  guessYouLikeProducts.value = []
+  viewedAlsoViewProducts.value = []
   try {
     const [pRes, rRes] = await Promise.all([
       api.get(`/products/${productId.value}`),
@@ -353,10 +421,39 @@ onMounted(async () => {
     ])
     if (pRes.data.code === 200) product.value = pRes.data.data
     if (rRes.data.code === 200) reviews.value = rRes.data.data || []
+
+    if (product.value) {
+      const cid = product.value.categoryId
+      const pid = product.value.id
+
+      try {
+        const cfgRes = await api.get('/recommendations/config')
+        if (cfgRes.data.code === 200 && cfgRes.data.data) {
+          Object.assign(recommendConfig, cfgRes.data.data)
+        }
+      } catch {}
+
+      const recPromises = []
+      if (recommendConfig.guessYouLikeEnabled) {
+        recPromises.push(
+          api.get('/recommendations/guess-you-like', { params: { categoryId: cid, excludeProductId: pid } })
+            .then(res => { if (res.data.code === 200) guessYouLikeProducts.value = res.data.data || [] })
+            .catch(() => {})
+        )
+      }
+      if (recommendConfig.viewedAlsoViewEnabled) {
+        recPromises.push(
+          api.get('/recommendations/viewed-also-view', { params: { categoryId: cid, excludeProductId: pid } })
+            .then(res => { if (res.data.code === 200) viewedAlsoViewProducts.value = res.data.data || [] })
+            .catch(() => {})
+        )
+      }
+      await Promise.all(recPromises)
+    }
   } finally {
     loading.value = false
   }
-})
+}
 
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown)
@@ -561,6 +658,10 @@ async function addToCart() {
     userStore.cartCount = (userStore.cartCount || 0) + quantity.value
   } catch (e) {
   }
+}
+
+function goToProduct(id) {
+  router.push(`/products/${id}`)
 }
 </script>
 
@@ -881,6 +982,112 @@ async function addToCart() {
   gap: 8px;
   padding: 24px;
   color: var(--color-text-muted);
+}
+
+.recommend-section {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--color-border);
+}
+
+.recommend-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin-bottom: 16px;
+  color: var(--color-text);
+}
+
+.recommend-scroll {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.recommend-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.recommend-scroll::-webkit-scrollbar-track {
+  background: var(--color-bg);
+  border-radius: 3px;
+}
+
+.recommend-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+.recommend-card {
+  min-width: 180px;
+  max-width: 180px;
+  cursor: pointer;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  scroll-snap-align: start;
+  transition: all var(--transition);
+  flex-shrink: 0;
+}
+
+.recommend-card:hover {
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-2px);
+}
+
+.recommend-card-img {
+  height: 180px;
+  background: var(--color-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.recommend-card-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.recommend-card:hover .recommend-card-img img {
+  transform: scale(1.04);
+}
+
+.recommend-card-info {
+  padding: 12px;
+}
+
+.recommend-card-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recommend-card-price {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  margin-top: 6px;
+}
+
+@media (max-width: 768px) {
+  .recommend-card {
+    min-width: 150px;
+    max-width: 150px;
+  }
+
+  .recommend-card-img {
+    height: 150px;
+  }
 }
 
 :deep(.el-timeline-item__timestamp) {
