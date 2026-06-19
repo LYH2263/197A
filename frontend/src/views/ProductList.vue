@@ -30,6 +30,14 @@
           <img
             :src="p.mainImage || '/images/default-product.svg'"
             alt=""
+            class="product-img--main"
+            @error="$event.target.src = '/images/default-product.svg'"
+          />
+          <img
+            v-if="getSecondImage(p)"
+            :src="getSecondImage(p)"
+            alt=""
+            class="product-img--hover"
             @error="$event.target.src = '/images/default-product.svg'"
           />
         </div>
@@ -78,6 +86,14 @@ onMounted(() => {
     if (res.data.code === 200) categories.value = res.data.data || []
   })
 })
+
+function getSecondImage(p) {
+  if (p.images && p.images.length > 1) {
+    const second = p.images.find((img) => img.isMain !== 1 && img.imageUrl !== p.mainImage)
+    return second ? second.imageUrl : p.images[1].imageUrl
+  }
+  return null
+}
 </script>
 
 <style scoped>
@@ -128,6 +144,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  position: relative;
 }
 
 .product-img img {
@@ -135,6 +152,17 @@ onMounted(() => {
   height: 100%;
   object-fit: cover;
   transition: transform 0.3s ease;
+}
+
+.product-img--hover {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.product-card:hover .product-img--hover {
+  opacity: 1;
 }
 
 .product-card:hover .product-img img {

@@ -1,27 +1,41 @@
 package com.shop.service;
 
 import com.shop.entity.Product;
+import com.shop.entity.ProductImage;
+import com.shop.mapper.ProductImageMapper;
 import com.shop.mapper.ProductMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
-/**
- * 商品服务
- */
 @Service
 @RequiredArgsConstructor
 public class ProductService {
 
     private final ProductMapper productMapper;
+    private final ProductImageMapper productImageMapper;
 
     public List<Product> list(Long categoryId, String keyword) {
-        return productMapper.selectByCondition(categoryId, keyword, 1);
+        List<Product> products = productMapper.selectByCondition(categoryId, keyword, 1);
+        for (Product p : products) {
+            List<ProductImage> images = productImageMapper.selectByProductId(p.getId());
+            if (images != null && !images.isEmpty()) {
+                p.setImages(images);
+            }
+        }
+        return products;
     }
 
     public Product getById(Long id) {
-        return productMapper.selectById(id);
+        Product p = productMapper.selectById(id);
+        if (p != null) {
+            List<ProductImage> images = productImageMapper.selectByProductId(id);
+            if (images != null && !images.isEmpty()) {
+                p.setImages(images);
+            }
+        }
+        return p;
     }
 
     public void decreaseStock(Long productId, int quantity) {

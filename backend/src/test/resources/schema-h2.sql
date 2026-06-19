@@ -133,3 +133,14 @@ CREATE TABLE IF NOT EXISTS after_sale_intent (
   handled_at TIMESTAMP,
   remark VARCHAR(512)
 );
+
+CREATE TABLE IF NOT EXISTS product_image (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  product_id BIGINT NOT NULL,
+  image_url VARCHAR(512) NOT NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  is_main TINYINT NOT NULL DEFAULT 0,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_product_image_product ON product_image(product_id);
+CREATE INDEX IF NOT EXISTS idx_product_image_sort ON product_image(product_id, sort_order);

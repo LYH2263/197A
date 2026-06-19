@@ -3,12 +3,40 @@
     <template v-if="product">
       <el-row :gutter="24">
         <el-col :span="10">
-          <div class="main-image">
-            <img
-              :src="product.mainImage || '/images/default-product.svg'"
-              alt=""
-              @error="$event.target.src = '/images/default-product.svg'"
-            />
+          <div class="gallery">
+            <div class="gallery-main" @touchstart="onTouchStart" @touchend="onTouchEnd">
+              <img
+                :src="currentImage || '/images/default-product.svg'"
+                alt=""
+                @error="$event.target.src = '/images/default-product.svg'"
+              />
+              <template v-if="galleryImages.length > 1">
+                <button class="gallery-arrow gallery-arrow--left" @click.stop="prevImage">
+                  <el-icon><ArrowLeft /></el-icon>
+                </button>
+                <button class="gallery-arrow gallery-arrow--right" @click.stop="nextImage">
+                  <el-icon><ArrowRight /></el-icon>
+                </button>
+              </template>
+              <div v-if="galleryImages.length > 1" class="gallery-counter">
+                {{ currentIndex + 1 }} / {{ galleryImages.length }}
+              </div>
+            </div>
+            <div v-if="galleryImages.length > 1" class="gallery-thumbs">
+              <div
+                v-for="(img, idx) in galleryImages"
+                :key="img.id || idx"
+                class="gallery-thumb"
+                :class="{ 'gallery-thumb--active': idx === currentIndex }"
+                @click="currentIndex = idx"
+              >
+                <img
+                  :src="img.imageUrl || img"
+                  alt=""
+                  @error="$event.target.src = '/images/default-product.svg'"
+                />
+              </div>
+            </div>
           </div>
         </el-col>
         <el-col :span="14">
@@ -85,10 +113,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Loading } from '@element-plus/icons-vue'
+import { Loading, ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
 import api from '../api'
 import { useUserStore } from '../stores/user'
 
@@ -107,7 +135,54 @@ const reviewForm = reactive({ orderId: null, productId: null, rating: 5, content
 
 const productId = computed(() => Number(route.params.id))
 
+const galleryImages = computed(() => {
+  if (!product.value) return []
+  if (product.value.images && product.value.images.length > 0) {
+    return product.value.images
+  }
+  if (product.value.mainImage) {
+    return [{ imageUrl: product.value.mainImage, isMain: 1 }]
+  }
+  return []
+})
+
+const currentIndex = ref(0)
+
+const currentImage = computed(() => {
+  if (galleryImages.value.length === 0) return ''
+  const img = galleryImages.value[currentIndex.value]
+  return img.imageUrl || img
+})
+
+function prevImage() {
+  if (galleryImages.value.length <= 1) return
+  currentIndex.value = (currentIndex.value - 1 + galleryImages.value.length) % galleryImages.value.length
+}
+
+function nextImage() {
+  if (galleryImages.value.length <= 1) return
+  currentIndex.value = (currentIndex.value + 1) % galleryImages.value.length
+}
+
+function onKeydown(e) {
+  if (e.key === 'ArrowLeft') prevImage()
+  else if (e.key === 'ArrowRight') nextImage()
+}
+
+let touchStartX = 0
+function onTouchStart(e) {
+  touchStartX = e.changedTouches[0].clientX
+}
+function onTouchEnd(e) {
+  const diff = touchStartX - e.changedTouches[0].clientX
+  if (Math.abs(diff) > 50) {
+    if (diff > 0) nextImage()
+    else prevImage()
+  }
+}
+
 onMounted(async () => {
+  window.addEventListener('keydown', onKeydown)
   try {
     const [pRes, rRes] = await Promise.all([
       api.get(`/products/${productId.value}`),
@@ -118,6 +193,10 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKeydown)
 })
 
 async function loadReviewableOrders() {
@@ -131,7 +210,6 @@ async function loadReviewableOrders() {
     const orders = (ordersRes.data.code === 200 ? ordersRes.data.data : []) || []
     const myReviews = (myReviewsRes.data.code === 200 ? myReviewsRes.data.data : []) || []
     const reviewedSet = new Set(myReviews.map((r) => `${r.orderId}-${r.productId}`))
-    // 已付款(1)、已发货(2)、已完成(3) 均可评价
     const reviewable = orders.filter((o) => o.status >= 1 && o.status <= 3)
     const itemPromises = reviewable.map((o) => api.get(`/orders/${o.id}/items`))
     const itemResults = await Promise.all(itemPromises)
@@ -191,7 +269,6 @@ async function submitReview() {
     const rRes = await api.get(`/reviews/product/${productId.value}`)
     if (rRes.data.code === 200) reviews.value = rRes.data.data || []
   } catch (e) {
-    // api 已统一 ElMessage.error
   } finally {
     reviewSubmitting.value = false
   }
@@ -207,7 +284,6 @@ async function addToCart() {
     ElMessage.success('已加入购物车')
     userStore.cartCount = (userStore.cartCount || 0) + quantity.value
   } catch (e) {
-    // api 已统一 ElMessage.error
   }
 }
 </script>
@@ -217,7 +293,13 @@ async function addToCart() {
   padding-bottom: 48px;
 }
 
-.main-image {
+.gallery {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.gallery-main {
   aspect-ratio: 1;
   background: var(--color-bg);
   display: flex;
@@ -226,9 +308,90 @@ async function addToCart() {
   overflow: hidden;
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
+  position: relative;
+  user-select: none;
 }
 
-.main-image img {
+.gallery-main img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: opacity 0.2s ease;
+}
+
+.gallery-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  color: var(--color-text);
+  font-size: 16px;
+  z-index: 2;
+}
+
+.gallery-arrow:hover {
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.gallery-arrow--left {
+  left: 12px;
+}
+
+.gallery-arrow--right {
+  right: 12px;
+}
+
+.gallery-counter {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-size: 0.75rem;
+  padding: 4px 10px;
+  border-radius: 12px;
+  z-index: 2;
+}
+
+.gallery-thumbs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.gallery-thumb {
+  width: 64px;
+  height: 64px;
+  min-width: 64px;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+  background: var(--color-bg);
+}
+
+.gallery-thumb--active {
+  border-color: var(--color-primary);
+}
+
+.gallery-thumb:hover {
+  border-color: var(--color-primary-hover);
+}
+
+.gallery-thumb img {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -321,5 +484,35 @@ async function addToCart() {
 .review-time {
   font-size: 0.8125rem;
   color: var(--color-text-muted);
+}
+
+@media (max-width: 768px) {
+  .gallery-main {
+    border-radius: 0;
+    margin: -32px -24px 0 -24px;
+  }
+
+  .gallery-thumbs {
+    padding: 0 24px;
+  }
+
+  .gallery-arrow {
+    width: 32px;
+    height: 32px;
+  }
+
+  .gallery-arrow--left {
+    left: 8px;
+  }
+
+  .gallery-arrow--right {
+    right: 8px;
+  }
+
+  .gallery-thumb {
+    width: 56px;
+    height: 56px;
+    min-width: 56px;
+  }
 }
 </style>

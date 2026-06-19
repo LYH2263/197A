@@ -29,4 +29,7 @@
     <update id="updateStock">
         UPDATE product SET stock = stock - #{quantity} WHERE id = #{id} AND stock >= #{quantity}
     </update>
+    <update id="updateMainImage">
+        UPDATE product SET main_image = #{mainImage} WHERE id = #{id}
+    </update>
 </mapper>

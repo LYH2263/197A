@@ -5,10 +5,8 @@ import lombok.Data;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
-/**
- * 商品实体
- */
 @Data
 public class Product implements Serializable {
 
@@ -25,4 +23,6 @@ public class Product implements Serializable {
     private Integer status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    private List<ProductImage> images;
 }

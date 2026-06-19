@@ -16,6 +16,7 @@ const routes = [
       { path: 'admin/users', name: 'AdminUsers', component: () => import('../views/AdminUsers.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
       { path: 'admin/reviews', name: 'AdminReviews', component: () => import('../views/AdminReviews.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
       { path: 'admin/orders/pending-ship', name: 'AdminPendingShip', component: () => import('../views/AdminPendingShip.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
+      { path: 'admin/product-images', name: 'AdminProductImages', component: () => import('../views/AdminProductImages.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
     ],
   },
   { path: '/login', name: 'Login', component: () => import('../views/Login.vue') },
