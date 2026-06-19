@@ -90,4 +90,40 @@ public class OrderController {
         Long intentId = orderService.recordAfterSaleIntent(id, userId, source);
         return Result.ok(Map.of("intentId", intentId));
     }
+
+    @PostMapping("/{id}/share-token")
+    public Result<Map<String, String>> createShareToken(Authentication auth, @PathVariable Long id) {
+        Long userId = requireUserId(auth);
+        String token = orderService.generateShareToken(id, userId);
+        return Result.ok(Map.of("token", token));
+    }
+
+    @GetMapping("/share/{token}")
+    public Result<Map<String, Object>> getSharedOrder(@PathVariable String token) {
+        Map<String, Object> data = orderService.getSharedOrder(token);
+        return Result.ok(data);
+    }
+
+    @GetMapping("/{id}/timeline")
+    public Result<List<Map<String, Object>>> getTimeline(Authentication auth, @PathVariable Long id) {
+        Long userId = requireUserId(auth);
+        OrderMain order = orderService.getById(id, userId);
+        if (order == null) {
+            return Result.fail(404, "订单不存在");
+        }
+        List<com.shop.entity.OrderOperationLog> logs = orderService.listOperationLogs(id);
+        List<Map<String, Object>> timeline = new java.util.ArrayList<>();
+        if (order.getCreatedAt() != null) {
+            timeline.add(Map.of("label", "下单", "time", order.getCreatedAt().toString()));
+        }
+        for (com.shop.entity.OrderOperationLog l : logs) {
+            if ("PAY".equals(l.getOperation())) {
+                timeline.add(Map.of("label", "支付", "time", l.getCreatedAt() != null ? l.getCreatedAt().toString() : ""));
+            }
+        }
+        if (order.getStatus() >= 2 && order.getShippedAt() != null) {
+            timeline.add(Map.of("label", "发货", "time", order.getShippedAt().toString()));
+        }
+        return Result.ok(timeline);
+    }
 }

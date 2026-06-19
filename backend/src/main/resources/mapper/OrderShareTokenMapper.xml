@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.shop.mapper.OrderShareTokenMapper">
+    <resultMap id="BaseResultMap" type="com.shop.entity.OrderShareToken">
+        <id column="id" property="id"/>
+        <result column="order_id" property="orderId"/>
+        <result column="token" property="token"/>
+        <result column="expires_at" property="expiresAt"/>
+        <result column="created_at" property="createdAt"/>
+    </resultMap>
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO order_share_token (order_id, token, expires_at)
+        VALUES (#{orderId}, #{token}, #{expiresAt})
+    </insert>
+    <select id="selectByToken" resultMap="BaseResultMap">
+        SELECT id, order_id, token, expires_at, created_at
+        FROM order_share_token
+        WHERE token = #{token}
+    </select>
+</mapper>

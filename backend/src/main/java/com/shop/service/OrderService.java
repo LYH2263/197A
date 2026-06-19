@@ -13,8 +13,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,8 +37,9 @@ public class OrderService {
     private final CartItemMapper cartItemMapper;
     private final ProductMapper productMapper;
     private final ShippingAddressMapper shippingAddressMapper;
-    private final OrderOperationLogMapper orderOperationLogMapper;
     private final AfterSaleIntentMapper afterSaleIntentMapper;
+    private final OrderShareTokenMapper orderShareTokenMapper;
+    private final OrderOperationLogMapper orderOperationLogMapper;
 
     private void writeLog(Long orderId, String orderNo, Long operatorId, String operatorName,
                           String operatorRole, String operation, Integer oldStatus, Integer newStatus,
@@ -265,5 +268,102 @@ public class OrderService {
 
     public List<OrderItem> listItems(Long orderId) {
         return orderItemMapper.selectByOrderId(orderId);
+    }
+
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
+    public String generateShareToken(Long orderId, Long userId) {
+        OrderMain order = orderMainMapper.selectById(orderId);
+        if (order == null || !order.getUserId().equals(userId)) {
+            throw new IllegalArgumentException("订单不存在");
+        }
+        byte[] bytes = new byte[32];
+        SECURE_RANDOM.nextBytes(bytes);
+        String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+        OrderShareToken shareToken = new OrderShareToken();
+        shareToken.setOrderId(orderId);
+        shareToken.setToken(token);
+        shareToken.setExpiresAt(LocalDateTime.now().plusHours(24));
+        orderShareTokenMapper.insert(shareToken);
+        return token;
+    }
+
+    public Map<String, Object> getSharedOrder(String token) {
+        OrderShareToken shareToken = orderShareTokenMapper.selectByToken(token);
+        if (shareToken == null) {
+            throw new IllegalArgumentException("分享链接无效");
+        }
+        if (shareToken.getExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("分享链接已过期");
+        }
+        OrderMain order = orderMainMapper.selectById(shareToken.getOrderId());
+        if (order == null) {
+            throw new IllegalArgumentException("订单不存在");
+        }
+        List<OrderItem> items = orderItemMapper.selectByOrderId(order.getId());
+
+        String maskedPhone = maskPhone(order.getReceiverPhone());
+        String maskedAddress = maskAddress(order.getReceiverAddress());
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("orderNo", order.getOrderNo());
+        result.put("status", order.getStatus());
+        result.put("statusText", OrderStatus.text(order.getStatus()));
+        result.put("totalAmount", order.getTotalAmount());
+        result.put("receiverName", order.getReceiverName());
+        result.put("receiverPhone", maskedPhone);
+        result.put("receiverAddress", maskedAddress);
+        result.put("createdAt", formatDateTime(order.getCreatedAt()));
+        result.put("shippedAt", formatDateTime(order.getShippedAt()));
+        result.put("completedAt", formatDateTime(order.getCompletedAt()));
+        result.put("items", items.stream().map(item -> {
+            Map<String, Object> m = new HashMap<>();
+            m.put("productName", item.getProductName());
+            m.put("price", item.getPrice());
+            m.put("quantity", item.getQuantity());
+            m.put("totalAmount", item.getTotalAmount());
+            return m;
+        }).toList());
+        result.put("timeline", buildTimeline(order));
+        return result;
+    }
+
+    public List<OrderOperationLog> listOperationLogs(Long orderId) {
+        return orderOperationLogMapper.selectByOrderId(orderId);
+    }
+
+    private String maskPhone(String phone) {
+        if (phone == null || phone.length() < 7) return "***";
+        return phone.substring(0, 3) + "****" + phone.substring(phone.length() - 4);
+    }
+
+    private String maskAddress(String address) {
+        if (address == null) return "***";
+        int len = address.length();
+        if (len <= 6) return address.substring(0, Math.min(3, len)) + "***";
+        return address.substring(0, len - 3) + "***";
+    }
+
+    private String formatDateTime(LocalDateTime dt) {
+        if (dt == null) return null;
+        return dt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+    }
+
+    private List<Map<String, Object>> buildTimeline(OrderMain order) {
+        List<Map<String, Object>> timeline = new java.util.ArrayList<>();
+        if (order.getCreatedAt() != null) {
+            timeline.add(Map.of("label", "下单", "time", formatDateTime(order.getCreatedAt())));
+        }
+        if (order.getStatus() >= 1 && order.getCreatedAt() != null) {
+            List<OrderOperationLog> logs = orderOperationLogMapper.selectByOrderId(order.getId());
+            logs.stream()
+                .filter(l -> "PAY".equals(l.getOperation()))
+                .findFirst()
+                .ifPresent(l -> timeline.add(Map.of("label", "支付", "time", formatDateTime(l.getCreatedAt()))));
+        }
+        if (order.getStatus() >= 2 && order.getShippedAt() != null) {
+            timeline.add(Map.of("label", "发货", "time", formatDateTime(order.getShippedAt())));
+        }
+        return timeline;
     }
 }

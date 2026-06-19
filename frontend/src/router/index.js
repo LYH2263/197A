@@ -23,6 +23,7 @@ const routes = [
   },
   { path: '/login', name: 'Login', component: () => import('../views/Login.vue') },
   { path: '/register', name: 'Register', component: () => import('../views/Register.vue') },
+  { path: '/orders/share/:token', name: 'OrderShare', component: () => import('../views/OrderShare.vue'), meta: { requiresAuth: false } },
 ]
 
 const router = createRouter({ history: createWebHistory(), routes })

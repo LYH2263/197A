@@ -19,4 +19,10 @@
         INSERT INTO order_operation_log (order_id, order_no, operator_id, operator_name, operator_role, operation, old_status, new_status, remark, extra_info)
         VALUES (#{orderId}, #{orderNo}, #{operatorId}, #{operatorName}, #{operatorRole}, #{operation}, #{oldStatus}, #{newStatus}, #{remark}, #{extraInfo})
     </insert>
+    <select id="selectByOrderId" resultMap="BaseResultMap">
+        SELECT id, order_id, order_no, operator_id, operator_name, operator_role, operation, old_status, new_status, remark, extra_info, created_at
+        FROM order_operation_log
+        WHERE order_id = #{orderId}
+        ORDER BY created_at ASC
+    </select>
 </mapper>
