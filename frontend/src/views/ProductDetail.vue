@@ -64,19 +64,122 @@
         <div v-else class="add-review-hint">
           <el-text type="info">登录后可发表评价</el-text>
         </div>
-        <div v-for="r in reviews" :key="r.id" class="review-item">
-          <el-rate :model-value="r.rating" disabled />
-          <span class="review-content">{{ r.content || '（无文字）' }}</span>
-          <span class="review-time">{{ r.createdAt }}</span>
+
+        <div v-if="reviews.length === 0" class="reviews-empty">
+          <el-empty description="暂无评价" />
         </div>
-        <el-empty v-if="reviews.length === 0" description="暂无评价" />
+
+        <div v-else class="reviews-timeline">
+          <div v-for="r in reviews" :key="r.id" class="timeline-group">
+            <el-timeline>
+              <el-timeline-item
+                :timestamp="formatDateTime(r.createdAt)"
+                placement="top"
+                size="large"
+              >
+                <template #dot>
+                  <el-icon class="timeline-dot timeline-dot--initial"><ChatDotRound /></el-icon>
+                </template>
+                <el-card shadow="hover" class="review-card review-card--initial">
+                  <div class="review-header">
+                    <div class="review-user">
+                      <el-avatar :size="32">{{ r.userName ? r.userName.charAt(0).toUpperCase() : 'U' }}</el-avatar>
+                      <div class="review-user-info">
+                        <span class="review-username">{{ r.userName || '匿名用户' }}</span>
+                        <el-rate :model-value="r.rating" disabled size="small" />
+                      </div>
+                    </div>
+                    <div class="review-actions">
+                      <el-button
+                        v-if="r.canEdit"
+                        type="primary"
+                        link
+                        size="small"
+                        @click="openEditReview(r)"
+                      >
+                        编辑
+                      </el-button>
+                      <el-button
+                        v-if="r.canFollowup"
+                        type="success"
+                        link
+                        size="small"
+                        @click="openFollowupReview(r)"
+                      >
+                        追评
+                      </el-button>
+                      <el-tooltip
+                        v-else-if="r.followupDisabledReason"
+                        :content="r.followupDisabledReason"
+                        placement="top"
+                      >
+                        <el-button type="success" link size="small" disabled>追评</el-button>
+                      </el-tooltip>
+                    </div>
+                  </div>
+                  <div class="review-content">{{ r.content || '（无文字）' }}</div>
+                  <div v-if="r.images && r.images.length > 0" class="review-images">
+                    <el-image
+                      v-for="(img, idx) in r.images"
+                      :key="idx"
+                      :src="img"
+                      :preview-src-list="r.images"
+                      :initial-index="idx"
+                      fit="cover"
+                      class="review-image"
+                      @error="$event.target.src = '/images/default-product.svg'"
+                    />
+                  </div>
+                  <div v-if="r.replyContent" class="review-reply">
+                    <div class="review-reply-header">
+                      <el-icon><OfficeBuilding /></el-icon>
+                      <span class="review-reply-label">商家回复</span>
+                      <span class="review-reply-time">{{ formatDateTime(r.replyAt) }}</span>
+                    </div>
+                    <div class="review-reply-content">{{ r.replyContent }}</div>
+                  </div>
+                </el-card>
+              </el-timeline-item>
+
+              <el-timeline-item
+                v-for="f in r.followups"
+                :key="f.id"
+                :timestamp="formatDateTime(f.createdAt)"
+                placement="top"
+                size="large"
+              >
+                <template #dot>
+                  <el-icon class="timeline-dot timeline-dot--followup"><ChatLineSquare /></el-icon>
+                </template>
+                <el-card shadow="hover" class="review-card review-card--followup">
+                  <div class="review-header">
+                    <div class="review-user">
+                      <el-avatar :size="28">{{ f.userName ? f.userName.charAt(0).toUpperCase() : 'U' }}</el-avatar>
+                      <div class="review-user-info">
+                        <span class="review-username">{{ f.userName || '匿名用户' }}</span>
+                        <span class="review-followup-tag">追评</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="review-content">{{ f.content || '（无文字）' }}</div>
+                </el-card>
+              </el-timeline-item>
+            </el-timeline>
+          </div>
+        </div>
       </section>
-      <el-dialog v-model="reviewVisible" title="发表评价" width="420px" @close="resetReviewForm">
+
+      <el-dialog
+        v-model="reviewVisible"
+        :title="reviewDialogTitle"
+        width="520px"
+        @close="resetReviewForm"
+      >
         <div v-if="loadingReviewable" class="review-dialog-loading">
           <el-icon class="is-loading"><Loading /></el-icon>
-          <span>正在加载可评价订单…</span>
+          <span>正在加载…</span>
         </div>
-        <template v-else-if="reviewableOrders.length === 0">
+        <template v-else-if="reviewMode === 'initial' && reviewableOrders.length === 0">
           <el-empty description="您暂无可评价的订单">
             <template #description>
               <p>需已付款及之后的订单且包含本商品方可评价</p>
@@ -85,7 +188,7 @@
           </el-empty>
         </template>
         <el-form v-else :model="reviewForm" label-width="80px">
-          <el-form-item v-if="reviewableOrders.length > 1" label="选择订单">
+          <el-form-item v-if="reviewMode === 'initial' && reviewableOrders.length > 1" label="选择订单">
             <el-select v-model="reviewForm.orderId" placeholder="请选择订单" style="width: 100%">
               <el-option
                 v-for="o in reviewableOrders"
@@ -95,14 +198,45 @@
               />
             </el-select>
           </el-form-item>
-          <el-form-item label="评分" required>
+          <el-form-item v-if="reviewMode !== 'followup'" label="评分" required>
             <el-rate v-model="reviewForm.rating" />
           </el-form-item>
           <el-form-item label="评价内容">
-            <el-input v-model="reviewForm.content" type="textarea" :rows="3" placeholder="选填" />
+            <el-input
+              v-model="reviewForm.content"
+              type="textarea"
+              :rows="4"
+              :placeholder="reviewMode === 'followup' ? '请输入追评内容' : '选填'"
+            />
+          </el-form-item>
+          <el-form-item v-if="reviewMode === 'initial'" label="上传图片">
+            <el-upload
+              v-model:file-list="reviewImageFileList"
+              :action="uploadImageUrl"
+              :headers="uploadHeaders"
+              list-type="picture-card"
+              :limit="3"
+              :on-preview="handlePictureCardPreview"
+              :on-remove="handleRemove"
+              :before-upload="beforeImageUpload"
+              :on-success="handleImageSuccess"
+              :on-error="handleImageError"
+              accept=".jpg,.jpeg,.png,.gif,.webp"
+            >
+              <el-icon><Plus /></el-icon>
+              <template #tip>
+                <div class="el-upload__tip">支持 jpg/png/gif/webp 格式，单张不超过 5MB，最多 3 张</div>
+              </template>
+            </el-upload>
+            <el-dialog v-model="previewVisible">
+              <img w-full :src="previewImageUrl" />
+            </el-dialog>
           </el-form-item>
         </el-form>
-        <template v-if="reviewableOrders.length > 0" #footer>
+        <template
+          v-if="(reviewMode === 'initial' && reviewableOrders.length > 0) || reviewMode === 'followup' || reviewMode === 'edit'"
+          #footer
+        >
           <el-button @click="reviewVisible = false">取消</el-button>
           <el-button type="primary" :loading="reviewSubmitting" @click="submitReview">提交</el-button>
         </template>
@@ -116,7 +250,7 @@
 import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Loading, ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
+import { Loading, ArrowLeft, ArrowRight, ChatDotRound, ChatLineSquare, OfficeBuilding, Plus } from '@element-plus/icons-vue'
 import api from '../api'
 import { useUserStore } from '../stores/user'
 
@@ -131,9 +265,38 @@ const reviewVisible = ref(false)
 const reviewableOrders = ref([])
 const loadingReviewable = ref(false)
 const reviewSubmitting = ref(false)
-const reviewForm = reactive({ orderId: null, productId: null, rating: 5, content: '' })
+const reviewMode = ref('initial')
+const editingReviewId = ref(null)
+const reviewForm = reactive({
+  parentId: null,
+  orderId: null,
+  productId: null,
+  rating: 5,
+  content: '',
+  images: [],
+})
+
+const reviewImageFileList = ref([])
+const previewVisible = ref(false)
+const previewImageUrl = ref('')
 
 const productId = computed(() => Number(route.params.id))
+
+const uploadImageUrl = computed(() => {
+  const base = import.meta.env.VITE_API_BASE || ''
+  return `${base}/upload/image`
+})
+
+const uploadHeaders = computed(() => {
+  const token = localStorage.getItem('token')
+  return token ? { Authorization: `Bearer ${token}` } : {}
+})
+
+const reviewDialogTitle = computed(() => {
+  if (reviewMode.value === 'followup') return '追加评价'
+  if (reviewMode.value === 'edit') return '编辑评价'
+  return '发表评价'
+})
 
 const galleryImages = computed(() => {
   if (!product.value) return []
@@ -199,6 +362,13 @@ onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown)
 })
 
+function formatDateTime(dt) {
+  if (!dt) return ''
+  const d = new Date(dt)
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 async function loadReviewableOrders() {
   loadingReviewable.value = true
   reviewableOrders.value = []
@@ -238,15 +408,62 @@ function openAddReview() {
     ElMessage.warning('请先登录')
     return
   }
+  reviewMode.value = 'initial'
+  editingReviewId.value = null
+  reviewImageFileList.value = []
+  reviewForm.images = []
   reviewVisible.value = true
   loadReviewableOrders()
 }
 
+function openEditReview(review) {
+  if (!userStore.isLoggedIn) {
+    ElMessage.warning('请先登录')
+    return
+  }
+  reviewMode.value = 'edit'
+  editingReviewId.value = review.id
+  reviewForm.parentId = null
+  reviewForm.orderId = review.orderId
+  reviewForm.productId = review.productId
+  reviewForm.rating = review.rating
+  reviewForm.content = review.content || ''
+  reviewForm.images = [...(review.images || [])]
+  reviewImageFileList.value = (review.images || []).map((url, idx) => ({
+    name: `image-${idx}`,
+    url: url,
+    response: { data: { url: url } },
+  }))
+  reviewVisible.value = true
+}
+
+function openFollowupReview(review) {
+  if (!userStore.isLoggedIn) {
+    ElMessage.warning('请先登录')
+    return
+  }
+  reviewMode.value = 'followup'
+  editingReviewId.value = null
+  reviewForm.parentId = review.id
+  reviewForm.orderId = review.orderId
+  reviewForm.productId = review.productId
+  reviewForm.rating = review.rating
+  reviewForm.content = ''
+  reviewForm.images = []
+  reviewImageFileList.value = []
+  reviewVisible.value = true
+}
+
 function resetReviewForm() {
+  reviewMode.value = 'initial'
+  editingReviewId.value = null
+  reviewForm.parentId = null
   reviewForm.orderId = null
   reviewForm.productId = null
   reviewForm.rating = 5
   reviewForm.content = ''
+  reviewForm.images = []
+  reviewImageFileList.value = []
 }
 
 function goOrders() {
@@ -254,21 +471,80 @@ function goOrders() {
   router.push({ name: 'OrderList' })
 }
 
+function beforeImageUpload(file) {
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+  const isImage = allowedTypes.includes(file.type)
+  const isLt5M = file.size / 1024 / 1024 < 5
+  if (!isImage) {
+    ElMessage.error('仅支持 jpg/png/gif/webp 格式的图片！')
+    return false
+  }
+  if (!isLt5M) {
+    ElMessage.error('单张图片大小不能超过 5MB！')
+    return false
+  }
+  return true
+}
+
+function handlePictureCardPreview(uploadFile) {
+  previewImageUrl.value = uploadFile.response?.data?.url || uploadFile.url
+  previewVisible.value = true
+}
+
+function handleRemove(uploadFile) {
+  const url = uploadFile.response?.data?.url || uploadFile.url
+  reviewForm.images = reviewForm.images.filter((u) => u !== url)
+}
+
+function handleImageSuccess(response, uploadFile) {
+  if (response.code === 200 && response.data?.url) {
+    reviewForm.images.push(response.data.url)
+  } else {
+    ElMessage.error(response.message || '图片上传失败')
+  }
+}
+
+function handleImageError(err, uploadFile) {
+  ElMessage.error('图片上传失败，请重试')
+}
+
 async function submitReview() {
   if (!reviewForm.orderId || !reviewForm.productId) return
   reviewSubmitting.value = true
   try {
-    await api.post('/reviews', {
+    const body = {
       orderId: reviewForm.orderId,
       productId: reviewForm.productId,
       rating: reviewForm.rating,
       content: reviewForm.content || undefined,
-    })
-    ElMessage.success('评价成功')
+    }
+    if (reviewMode.value === 'followup') {
+      body.parentId = reviewForm.parentId
+    }
+    if (reviewMode.value === 'initial' || reviewMode.value === 'edit') {
+      if (reviewForm.images && reviewForm.images.length > 0) {
+        body.images = reviewForm.images
+      }
+    }
+
+    let successMsg = '评价成功'
+    if (reviewMode.value === 'edit') {
+      await api.put(`/reviews/${editingReviewId.value}`, body)
+      successMsg = '编辑成功'
+    } else if (reviewMode.value === 'followup') {
+      await api.post('/reviews', body)
+      successMsg = '追评成功'
+    } else {
+      await api.post('/reviews', body)
+    }
+    ElMessage.success(successMsg)
     reviewVisible.value = false
     const rRes = await api.get(`/reviews/product/${productId.value}`)
     if (rRes.data.code === 200) reviews.value = rRes.data.data || []
   } catch (e) {
+    if (e?.response?.data?.message) {
+      ElMessage.error(e.response.data.message)
+    }
   } finally {
     reviewSubmitting.value = false
   }
@@ -458,6 +734,146 @@ async function addToCart() {
   margin-bottom: 16px;
 }
 
+.reviews-empty {
+  padding: 24px 0;
+}
+
+.reviews-timeline {
+  margin-top: 8px;
+}
+
+.timeline-group {
+  margin-bottom: 24px;
+}
+
+.timeline-dot {
+  font-size: 18px;
+}
+
+.timeline-dot--initial {
+  color: var(--color-primary);
+}
+
+.timeline-dot--followup {
+  color: var(--color-success);
+}
+
+.review-card {
+  margin-bottom: 8px;
+}
+
+.review-card--initial {
+  border-left: 3px solid var(--color-primary);
+}
+
+.review-card--followup {
+  border-left: 3px solid var(--color-success);
+  background: linear-gradient(135deg, rgba(103, 194, 58, 0.05) 0%, transparent 100%);
+}
+
+.review-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.review-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.review-user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.review-username {
+  font-weight: 600;
+  color: var(--color-text);
+  font-size: 0.9375rem;
+}
+
+.review-followup-tag {
+  display: inline-block;
+  padding: 1px 8px;
+  background: var(--color-success-light-9);
+  color: var(--color-success);
+  border-radius: 10px;
+  font-size: 0.75rem;
+  margin-top: 2px;
+}
+
+.review-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.review-content {
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+  font-size: 0.9375rem;
+  margin-bottom: 12px;
+}
+
+.review-images {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.review-image {
+  width: 100px;
+  height: 100px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid var(--color-border);
+  transition: transform 0.2s ease;
+}
+
+.review-image:hover {
+  transform: scale(1.05);
+}
+
+.review-reply {
+  background: var(--color-bg-page);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-top: 8px;
+  border-left: 3px solid var(--color-warning);
+}
+
+.review-reply-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  color: var(--color-warning);
+}
+
+.review-reply-label {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.review-reply-time {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  margin-left: auto;
+}
+
+.review-reply-content {
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
 .review-dialog-loading {
   display: flex;
   align-items: center;
@@ -467,23 +883,24 @@ async function addToCart() {
   color: var(--color-text-muted);
 }
 
-.review-item {
-  padding: 14px 0;
-  border-bottom: 1px solid var(--color-border);
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.review-content {
-  flex: 1;
-  color: var(--color-text-secondary);
-}
-
-.review-time {
-  font-size: 0.8125rem;
+:deep(.el-timeline-item__timestamp) {
   color: var(--color-text-muted);
+  font-size: 0.8125rem;
+}
+
+:deep(.el-timeline-item__wrapper) {
+  padding-left: 20px;
+}
+
+:deep(.el-upload--picture-card) {
+  width: 80px;
+  height: 80px;
+  line-height: 80px;
+}
+
+:deep(.el-upload-list--picture-card .el-upload-list__item) {
+  width: 80px;
+  height: 80px;
 }
 
 @media (max-width: 768px) {

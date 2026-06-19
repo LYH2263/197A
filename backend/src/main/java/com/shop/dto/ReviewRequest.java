@@ -5,11 +5,15 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
+import java.util.List;
+
 /**
  * 评价请求 DTO
  */
 @Data
 public class ReviewRequest {
+
+    private Long parentId;
 
     @NotNull(message = "订单ID不能为空")
     private Long orderId;
@@ -23,4 +27,6 @@ public class ReviewRequest {
     private Integer rating;
 
     private String content;
+
+    private List<String> images;
 }

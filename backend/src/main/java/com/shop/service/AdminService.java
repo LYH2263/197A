@@ -3,6 +3,7 @@ package com.shop.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shop.common.OrderStatus;
+import com.shop.dto.ReviewReplyRequest;
 import com.shop.dto.ReviewVO;
 import com.shop.dto.ShipRequest;
 import com.shop.dto.UserVO;
@@ -77,6 +78,11 @@ public class AdminService {
 
     public void deleteReview(Long id) {
         reviewService.deleteById(id);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void replyReview(Long adminId, String adminName, ReviewReplyRequest req) {
+        reviewService.reply(adminId, adminName, req);
     }
 
     public List<OrderMain> listAllOrders() {

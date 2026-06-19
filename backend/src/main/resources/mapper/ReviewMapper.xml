@@ -3,16 +3,21 @@
 <mapper namespace="com.shop.mapper.ReviewMapper">
     <resultMap id="BaseResultMap" type="com.shop.entity.Review">
         <id column="id" property="id"/>
+        <result column="parent_id" property="parentId"/>
+        <result column="review_type" property="reviewType"/>
         <result column="user_id" property="userId"/>
         <result column="product_id" property="productId"/>
         <result column="order_id" property="orderId"/>
         <result column="rating" property="rating"/>
         <result column="content" property="content"/>
+        <result column="images" property="images"/>
+        <result column="reply_content" property="replyContent"/>
+        <result column="reply_at" property="replyAt"/>
         <result column="created_at" property="createdAt"/>
     </resultMap>
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO review (user_id, product_id, order_id, rating, content)
-        VALUES (#{userId}, #{productId}, #{orderId}, #{rating}, #{content})
+        INSERT INTO review (parent_id, review_type, user_id, product_id, order_id, rating, content, images)
+        VALUES (#{parentId}, #{reviewType}, #{userId}, #{productId}, #{orderId}, #{rating}, #{content}, #{images})
     </insert>
     <select id="selectByProductId" resultMap="BaseResultMap">
         SELECT * FROM review WHERE product_id = #{productId} ORDER BY id DESC
@@ -32,4 +37,16 @@
     <select id="selectByUserAndOrderAndProduct" resultMap="BaseResultMap">
         SELECT * FROM review WHERE user_id = #{userId} AND order_id = #{orderId} AND product_id = #{productId}
     </select>
+    <select id="selectInitialByUserAndOrderAndProduct" resultMap="BaseResultMap">
+        SELECT * FROM review WHERE user_id = #{userId} AND order_id = #{orderId} AND product_id = #{productId} AND review_type = 0
+    </select>
+    <select id="selectByParentId" resultMap="BaseResultMap">
+        SELECT * FROM review WHERE parent_id = #{parentId} ORDER BY id ASC
+    </select>
+    <update id="updateReply">
+        UPDATE review SET reply_content = #{replyContent}, reply_at = #{replyAt} WHERE id = #{id}
+    </update>
+    <update id="updateContent">
+        UPDATE review SET content = #{content}, images = #{images} WHERE id = #{id}
+    </update>
 </mapper>

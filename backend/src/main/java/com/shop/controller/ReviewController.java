@@ -36,9 +36,20 @@ public class ReviewController {
         return Result.ok(review);
     }
 
+    @PutMapping("/{id}")
+    public Result<Review> update(Authentication auth, @PathVariable Long id, @Valid @RequestBody ReviewRequest req) {
+        Long userId = requireUserId(auth);
+        Review review = reviewService.update(userId, id, req);
+        return Result.ok(review);
+    }
+
     @GetMapping("/product/{productId}")
-    public Result<List<Review>> listByProduct(@PathVariable Long productId) {
-        return Result.ok(reviewService.listByProductId(productId));
+    public Result<List<ReviewVO>> listByProduct(@PathVariable Long productId, Authentication auth) {
+        Long currentUserId = null;
+        if (auth != null && auth.getPrincipal() instanceof Long) {
+            currentUserId = (Long) auth.getPrincipal();
+        }
+        return Result.ok(reviewService.listByProductIdWithTimeline(productId, currentUserId));
     }
 
     /** 我的评价 */

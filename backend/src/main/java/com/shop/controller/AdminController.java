@@ -1,6 +1,7 @@
 package com.shop.controller;
 
 import com.shop.common.Result;
+import com.shop.dto.ReviewReplyRequest;
 import com.shop.dto.ReviewVO;
 import com.shop.dto.ShipRequest;
 import com.shop.dto.UserVO;
@@ -10,6 +11,7 @@ import com.shop.service.AdminService;
 import com.shop.service.PriceAlertService;
 import com.shop.service.ProductImageService;
 import com.shop.mapper.ProductMapper;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -55,6 +57,14 @@ public class AdminController {
     @DeleteMapping("/reviews/{id}")
     public Result<Void> deleteReview(@PathVariable Long id) {
         adminService.deleteReview(id);
+        return Result.ok();
+    }
+
+    @PostMapping("/reviews/reply")
+    public Result<Void> replyReview(Authentication auth, @Valid @RequestBody ReviewReplyRequest req) {
+        Long adminId = requireAdminId(auth);
+        String adminName = auth.getName() != null ? auth.getName() : null;
+        adminService.replyReview(adminId, adminName, req);
         return Result.ok();
     }
 
