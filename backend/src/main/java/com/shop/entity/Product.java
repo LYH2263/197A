@@ -20,6 +20,8 @@ public class Product implements Serializable {
     private String detail;
     private BigDecimal price;
     private Integer stock;
+    private Integer salesCount;
+    private Integer reviewCount;
     private Integer status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

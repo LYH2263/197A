@@ -1,5 +1,6 @@
 package com.shop.mapper;
 
+import com.shop.dto.ProductQueryDTO;
 import com.shop.entity.Product;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -15,6 +16,8 @@ public interface ProductMapper {
     List<Product> selectByCondition(@Param("categoryId") Long categoryId,
                                     @Param("keyword") String keyword,
                                     @Param("status") Integer status);
+
+    List<Product> selectByAdvancedCondition(@Param("query") ProductQueryDTO query);
 
     Product selectById(@Param("id") Long id);
 

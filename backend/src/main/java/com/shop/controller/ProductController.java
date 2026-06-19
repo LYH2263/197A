@@ -1,13 +1,17 @@
 package com.shop.controller;
 
 import com.shop.common.Result;
+import com.shop.dto.ProductQueryDTO;
 import com.shop.entity.Product;
 import com.shop.entity.ProductImage;
 import com.shop.service.ProductImageService;
 import com.shop.service.ProductService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -21,8 +25,25 @@ public class ProductController {
     @GetMapping
     public Result<List<Product>> list(
             @RequestParam(required = false) Long categoryId,
-            @RequestParam(required = false) String keyword) {
-        return Result.ok(productService.list(categoryId, keyword));
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) BigDecimal minPrice,
+            @RequestParam(required = false) BigDecimal maxPrice,
+            @RequestParam(required = false) String stockStatus,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime startDate,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime endDate,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String sortOrder) {
+        ProductQueryDTO query = new ProductQueryDTO();
+        query.setCategoryId(categoryId);
+        query.setKeyword(keyword);
+        query.setMinPrice(minPrice);
+        query.setMaxPrice(maxPrice);
+        query.setStockStatus(stockStatus);
+        query.setStartDate(startDate);
+        query.setEndDate(endDate);
+        query.setSortBy(sortBy);
+        query.setSortOrder(sortOrder);
+        return Result.ok(productService.advancedList(query));
     }
 
     @GetMapping("/{id}")

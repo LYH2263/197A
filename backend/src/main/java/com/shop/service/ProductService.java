@@ -1,5 +1,6 @@
 package com.shop.service;
 
+import com.shop.dto.ProductQueryDTO;
 import com.shop.entity.Product;
 import com.shop.entity.ProductImage;
 import com.shop.mapper.ProductImageMapper;
@@ -18,6 +19,20 @@ public class ProductService {
 
     public List<Product> list(Long categoryId, String keyword) {
         List<Product> products = productMapper.selectByCondition(categoryId, keyword, 1);
+        for (Product p : products) {
+            List<ProductImage> images = productImageMapper.selectByProductId(p.getId());
+            if (images != null && !images.isEmpty()) {
+                p.setImages(images);
+            }
+        }
+        return products;
+    }
+
+    public List<Product> advancedList(ProductQueryDTO query) {
+        if (query.getStatus() == null) {
+            query.setStatus(1);
+        }
+        List<Product> products = productMapper.selectByAdvancedCondition(query);
         for (Product p : products) {
             List<ProductImage> images = productImageMapper.selectByProductId(p.getId());
             if (images != null && !images.isEmpty()) {

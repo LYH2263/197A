@@ -10,10 +10,17 @@
         <result column="detail" property="detail"/>
         <result column="price" property="price"/>
         <result column="stock" property="stock"/>
+        <result column="sales_count" property="salesCount"/>
+        <result column="review_count" property="reviewCount"/>
         <result column="status" property="status"/>
         <result column="created_at" property="createdAt"/>
         <result column="updated_at" property="updatedAt"/>
     </resultMap>
+
+    <sql id="CategorySubIds">
+        SELECT id FROM category WHERE id = #{query.categoryId} OR parent_id = #{query.categoryId}
+    </sql>
+
     <select id="selectByCondition" resultMap="BaseResultMap">
         SELECT * FROM product
         <where>
@@ -23,6 +30,35 @@
         </where>
         ORDER BY id DESC
     </select>
+
+    <select id="selectByAdvancedCondition" parameterType="com.shop.dto.ProductQueryDTO" resultMap="BaseResultMap">
+        SELECT DISTINCT p.* FROM product p
+        <where>
+            <if test="query.status != null">AND p.status = #{query.status}</if>
+            <if test="query.keyword != null and query.keyword != ''">
+                AND (p.name LIKE CONCAT('%', #{query.keyword}, '%') OR p.subtitle LIKE CONCAT('%', #{query.keyword}, '%'))
+            </if>
+            <if test="query.categoryId != null">
+                AND p.category_id IN (<include refid="CategorySubIds"/>)
+            </if>
+            <if test="query.minPrice != null">AND p.price <![CDATA[>=]]> #{query.minPrice}</if>
+            <if test="query.maxPrice != null">AND p.price <![CDATA[<=]]> #{query.maxPrice}</if>
+            <if test="query.stockStatus != null and query.stockStatus == 'in_stock'">AND p.stock <![CDATA[>]]> 0</if>
+            <if test="query.stockStatus != null and query.stockStatus == 'out_of_stock'">AND p.stock = 0</if>
+            <if test="query.stockStatus != null and query.stockStatus == 'pre_sale'">AND p.stock <![CDATA[<]]> 0</if>
+            <if test="query.startDate != null">AND p.created_at <![CDATA[>=]]> #{query.startDate}</if>
+            <if test="query.endDate != null">AND p.created_at <![CDATA[<=]]> #{query.endDate}</if>
+        </where>
+        <choose>
+            <when test="query.sortBy != null and query.sortBy == 'price' and query.sortOrder == 'asc'">ORDER BY p.price ASC</when>
+            <when test="query.sortBy != null and query.sortBy == 'price' and query.sortOrder == 'desc'">ORDER BY p.price DESC</when>
+            <when test="query.sortBy != null and query.sortBy == 'sales'">ORDER BY p.sales_count DESC</when>
+            <when test="query.sortBy != null and query.sortBy == 'new_arrivals'">ORDER BY p.created_at DESC</when>
+            <when test="query.sortBy != null and query.sortBy == 'reviews'">ORDER BY p.review_count DESC</when>
+            <otherwise>ORDER BY p.id DESC</otherwise>
+        </choose>
+    </select>
+
     <select id="selectById" resultMap="BaseResultMap">
         SELECT * FROM product WHERE id = #{id}
     </select>
