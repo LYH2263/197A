@@ -1,5 +1,6 @@
 package com.shop.service;
 
+import com.shop.common.OrderStatus;
 import com.shop.dto.ShippingAddressRequest;
 import com.shop.entity.ShippingAddress;
 import com.shop.mapper.OrderMainMapper;
@@ -17,6 +18,15 @@ public class ShippingAddressService {
     private final ShippingAddressMapper shippingAddressMapper;
     private final OrderMainMapper orderMainMapper;
 
+    private int countPendingRefs(Long addressId, Long userId) {
+        return orderMainMapper.countPendingByAddressId(addressId, userId);
+    }
+
+    private void syncDisabledByOrders(Long addressId, Long userId) {
+        int pending = countPendingRefs(addressId, userId);
+        shippingAddressMapper.updateDisabled(addressId, pending > 0 ? 1 : 0);
+    }
+
     public List<ShippingAddress> listByUserId(Long userId) {
         return shippingAddressMapper.selectByUserId(userId);
     }
@@ -26,7 +36,8 @@ public class ShippingAddressService {
         if (addr == null || !addr.getUserId().equals(userId)) {
             return null;
         }
-        return addr;
+        syncDisabledByOrders(id, userId);
+        return shippingAddressMapper.selectById(id);
     }
 
     public ShippingAddress getDefault(Long userId) {
@@ -51,6 +62,7 @@ public class ShippingAddressService {
             List<ShippingAddress> existing = shippingAddressMapper.selectByUserId(userId);
             addr.setIsDefault(existing.isEmpty() ? 1 : 0);
         }
+        addr.setIsDisabled(0);
         shippingAddressMapper.insert(addr);
         return shippingAddressMapper.selectById(addr.getId());
     }
@@ -61,8 +73,10 @@ public class ShippingAddressService {
         if (addr == null || !addr.getUserId().equals(userId)) {
             throw new IllegalArgumentException("地址不存在");
         }
+        syncDisabledByOrders(id, userId);
+        addr = shippingAddressMapper.selectById(id);
         if (addr.getIsDisabled() != null && addr.getIsDisabled() == 1) {
-            throw new IllegalStateException("该地址已被禁用，无法修改");
+            throw new IllegalStateException("该地址已被进行中的订单使用，暂无法修改");
         }
         addr.setReceiverName(req.getReceiverName());
         addr.setReceiverPhone(req.getReceiverPhone());
@@ -87,15 +101,18 @@ public class ShippingAddressService {
         if (addr == null || !addr.getUserId().equals(userId)) {
             throw new IllegalArgumentException("地址不存在");
         }
+        syncDisabledByOrders(id, userId);
+        addr = shippingAddressMapper.selectById(id);
         if (addr.getIsDisabled() != null && addr.getIsDisabled() == 1) {
-            throw new IllegalStateException("该地址已被禁用，无法删除");
+            throw new IllegalStateException("该地址已被进行中的订单使用，暂无法删除");
         }
-        int pendingCount = orderMainMapper.countPendingByAddressId(id, userId);
+        int pendingCount = countPendingRefs(id, userId);
         if (pendingCount > 0) {
-            throw new IllegalStateException("该地址已被未完成的订单引用，无法删除");
+            throw new IllegalStateException("该地址已被进行中的订单引用，无法删除");
         }
-        shippingAddressMapper.deleteById(id);
-        if (addr.getIsDefault() != null && addr.getIsDefault() == 1) {
+        boolean wasDefault = addr.getIsDefault() != null && addr.getIsDefault() == 1;
+        shippingAddressMapper.deleteById(id, userId);
+        if (wasDefault) {
             List<ShippingAddress> remaining = shippingAddressMapper.selectByUserId(userId);
             if (!remaining.isEmpty()) {
                 shippingAddressMapper.updateIsDefault(remaining.get(0).getId(), 1);
@@ -111,5 +128,11 @@ public class ShippingAddressService {
         }
         shippingAddressMapper.clearDefaultByUserId(userId);
         shippingAddressMapper.updateIsDefault(id, 1);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void markDisabledIfReferenced(Long addressId, Long userId) {
+        if (addressId == null) return;
+        syncDisabledByOrders(addressId, userId);
     }
 }

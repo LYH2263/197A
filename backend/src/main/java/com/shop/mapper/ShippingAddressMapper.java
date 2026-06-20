@@ -13,7 +13,7 @@ public interface ShippingAddressMapper {
 
     int update(ShippingAddress address);
 
-    int deleteById(@Param("id") Long id);
+    int deleteById(@Param("id") Long id, @Param("userId") Long userId);
 
     ShippingAddress selectById(@Param("id") Long id);
 

@@ -19,6 +19,8 @@ public class OrderCreateRequest {
 
     private String detailAddress;
 
+    private String tag;
+
     private String receiverAddress;
 
     private Boolean saveToAddressBook;

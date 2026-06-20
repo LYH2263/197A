@@ -37,6 +37,7 @@ public class OrderService {
     private final CartItemMapper cartItemMapper;
     private final ProductMapper productMapper;
     private final ShippingAddressMapper shippingAddressMapper;
+    private final ShippingAddressService shippingAddressService;
     private final AfterSaleIntentMapper afterSaleIntentMapper;
     private final OrderShareTokenMapper orderShareTokenMapper;
     private final OrderOperationLogMapper orderOperationLogMapper;
@@ -122,6 +123,8 @@ public class OrderService {
                 addr.setCity(req.getCity());
                 addr.setDistrict(req.getDistrict());
                 addr.setDetailAddress(req.getDetailAddress());
+                addr.setTag(req.getTag());
+                addr.setIsDisabled(0);
                 List<ShippingAddress> existing = shippingAddressMapper.selectByUserId(userId);
                 if (existing.isEmpty()) {
                     shippingAddressMapper.clearDefaultByUserId(userId);
@@ -174,6 +177,9 @@ public class OrderService {
         writeLog(order.getId(), orderNo, userId, resolveUserName(userId), "user",
                 OrderStatus.OP_CREATE, null, OrderStatus.PENDING_PAYMENT, "创建订单", null);
         log.info("Order created: orderNo={}, userId={}", orderNo, userId);
+        if (shippingAddressId != null) {
+            shippingAddressService.markDisabledIfReferenced(shippingAddressId, userId);
+        }
         return orderMainMapper.selectById(order.getId());
     }
 
@@ -204,6 +210,9 @@ public class OrderService {
         writeLog(orderId, order.getOrderNo(), userId, resolveUserName(userId), "user",
                 OrderStatus.OP_PAY, from, to, "支付订单", null);
         log.info("Order paid: orderId={}", orderId);
+        if (order.getShippingAddressId() != null) {
+            shippingAddressService.markDisabledIfReferenced(order.getShippingAddressId(), userId);
+        }
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -221,6 +230,9 @@ public class OrderService {
         writeLog(orderId, order.getOrderNo(), userId, resolveUserName(userId), "user",
                 OrderStatus.OP_CANCEL, from, to, "取消订单", null);
         log.info("Order cancelled: orderId={}", orderId);
+        if (order.getShippingAddressId() != null) {
+            shippingAddressService.markDisabledIfReferenced(order.getShippingAddressId(), userId);
+        }
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -238,6 +250,9 @@ public class OrderService {
         writeLog(orderId, order.getOrderNo(), userId, resolveUserName(userId), "user",
                 OrderStatus.OP_RECEIVE, from, to, "用户确认收货", null);
         log.info("Order received: orderId={}", orderId);
+        if (order.getShippingAddressId() != null) {
+            shippingAddressService.markDisabledIfReferenced(order.getShippingAddressId(), userId);
+        }
     }
 
     @Transactional(rollbackFor = Exception.class)

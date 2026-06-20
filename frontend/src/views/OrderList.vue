@@ -447,6 +447,7 @@ async function submitOrder() {
       city: manualForm.region[1],
       district: manualForm.region[2],
       detailAddress: manualForm.detailAddress,
+      tag: manualForm.tag || undefined,
       saveToAddressBook: manualForm.saveToAddressBook,
     }
   }
