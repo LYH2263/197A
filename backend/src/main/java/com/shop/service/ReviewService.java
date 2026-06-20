@@ -227,7 +227,7 @@ public class ReviewService {
             long daysSinceCreated = Duration.between(r.getCreatedAt(), LocalDateTime.now()).toDays();
             List<Review> existingFollowups = reviewMapper.selectByParentId(r.getId());
 
-            if (existingFollowups.isEmpty() && daysSinceCreated <= FOLLOWUP_DAYS && r.getReplyContent() == null) {
+            if (existingFollowups.isEmpty() && daysSinceCreated <= FOLLOWUP_DAYS) {
                 vo.setCanFollowup(true);
                 vo.setFollowupDisabledReason(null);
             } else if (!existingFollowups.isEmpty()) {
@@ -236,9 +236,6 @@ public class ReviewService {
             } else if (daysSinceCreated > FOLLOWUP_DAYS) {
                 vo.setCanFollowup(false);
                 vo.setFollowupDisabledReason("已超过" + FOLLOWUP_DAYS + "天追评期限");
-            } else if (r.getReplyContent() != null) {
-                vo.setCanFollowup(false);
-                vo.setFollowupDisabledReason("商家已回复");
             }
             vo.setCanEdit(r.getReplyContent() == null);
         } else {
@@ -294,8 +291,16 @@ public class ReviewService {
 
     @Transactional(rollbackFor = Exception.class)
     public void deleteById(Long id) {
-        if (reviewMapper.selectById(id) == null) {
+        Review review = reviewMapper.selectById(id);
+        if (review == null) {
             throw new IllegalArgumentException("评价不存在");
+        }
+        if (review.getReviewType() == Review.TYPE_INITIAL) {
+            List<Review> followups = reviewMapper.selectByParentId(id);
+            for (Review f : followups) {
+                reviewMapper.deleteById(f.getId());
+                log.info("Followup review deleted: id={}, parentId={}", f.getId(), id);
+            }
         }
         reviewMapper.deleteById(id);
         log.info("Review deleted: id={}", id);
