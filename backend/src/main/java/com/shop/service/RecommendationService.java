@@ -36,7 +36,10 @@ public class RecommendationService {
 
     public List<Product> guessYouLike(Long categoryId, Long excludeProductId) {
         SiteConfigService.RecommendationConfig config = siteConfigService.getRecommendationConfig();
-        if (!config.isGuessYouLikeEnabled()) return List.of();
+        if (!config.isGuessYouLikeEnabled()) {
+            clearCategoryCache(categoryId, "guess:");
+            return List.of();
+        }
         int limit = config.getGuessYouLikeCount();
 
         String cacheKey = "guess:" + categoryId + ":" + excludeProductId;
@@ -52,7 +55,10 @@ public class RecommendationService {
 
     public List<Product> viewedAlsoView(Long userId, Long categoryId, Long excludeProductId) {
         SiteConfigService.RecommendationConfig config = siteConfigService.getRecommendationConfig();
-        if (!config.isViewedAlsoViewEnabled()) return List.of();
+        if (!config.isViewedAlsoViewEnabled()) {
+            clearCategoryCache(categoryId, "viewed:");
+            return List.of();
+        }
         int limit = config.getViewedAlsoViewCount();
 
         String cacheKey = "viewed:" + userId + ":" + categoryId + ":" + excludeProductId;
@@ -91,7 +97,10 @@ public class RecommendationService {
 
     public List<Product> homeGuessYouLike() {
         SiteConfigService.RecommendationConfig config = siteConfigService.getRecommendationConfig();
-        if (!config.isGuessYouLikeEnabled()) return List.of();
+        if (!config.isGuessYouLikeEnabled()) {
+            cache.remove("home:guess");
+            return List.of();
+        }
 
         String cacheKey = "home:guess";
         CachedRecommendation cached = cache.get(cacheKey);
@@ -102,6 +111,17 @@ public class RecommendationService {
         List<Product> products = productMapper.selectTopBySales(config.getGuessYouLikeCount());
         cache.put(cacheKey, new CachedRecommendation(products));
         return products;
+    }
+
+    private void clearCategoryCache(Long categoryId, String prefix) {
+        if (categoryId == null) return;
+        Iterator<Map.Entry<String, CachedRecommendation>> it = cache.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<String, CachedRecommendation> e = it.next();
+            if (e.getKey().startsWith(prefix) && e.getKey().contains(":" + categoryId + ":")) {
+                it.remove();
+            }
+        }
     }
 
     public void clearCache() {

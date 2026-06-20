@@ -49,7 +49,7 @@
       </div>
     </section>
 
-    <section v-if="guessYouLikeProducts.length > 0" class="section recommend-section">
+    <section v-if="recommendConfig.guessYouLikeEnabled && guessYouLikeProducts.length > 0" class="section recommend-section">
       <h2 class="section-title">猜你喜欢</h2>
       <div class="recommend-scroll">
         <div
@@ -76,26 +76,39 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import api from '../api'
 
 const loading = ref(true)
 const categories = ref([])
 const products = ref([])
 const guessYouLikeProducts = ref([])
+const recommendConfig = reactive({
+  guessYouLikeEnabled: true,
+  guessYouLikeCount: 6,
+  viewedAlsoViewEnabled: true,
+  viewedAlsoViewCount: 6,
+})
 
 onMounted(async () => {
   try {
-    const [catRes, prodRes] = await Promise.all([
+    const [catRes, prodRes, cfgRes] = await Promise.all([
       api.get('/categories'),
       api.get('/products'),
+      api.get('/recommendations/config').catch(() => null),
     ])
     if (catRes.data.code === 200) categories.value = (catRes.data.data || []).filter(c => c.parentId === 0)
     if (prodRes.data.code === 200) products.value = (prodRes.data.data || []).slice(0, 8)
+    if (cfgRes && cfgRes.data && cfgRes.data.code === 200 && cfgRes.data.data) {
+      Object.assign(recommendConfig, cfgRes.data.data)
+    }
 
-    api.get('/recommendations/home').then(res => {
-      if (res.data.code === 200) guessYouLikeProducts.value = res.data.data || []
-    }).catch(() => {})
+    if (recommendConfig.guessYouLikeEnabled) {
+      try {
+        const res = await api.get('/recommendations/home')
+        if (res.data.code === 200) guessYouLikeProducts.value = res.data.data || []
+      } catch {}
+    }
   } finally {
     loading.value = false
   }

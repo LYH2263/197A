@@ -523,11 +523,16 @@ async function loadRecommendConfig() {
 async function saveRecommendConfig() {
   recommendSaving.value = true
   try {
-    await api.put('/admin/recommendations/config', recommendForm)
-    ElMessage.success('推荐配置已保存')
-    showRecommendDialog.value = false
+    const res = await api.put('/admin/recommendations/config', recommendForm)
+    if (res.data.code === 200) {
+      ElMessage.success('推荐配置已保存')
+      showRecommendDialog.value = false
+    } else {
+      ElMessage.error(res.data.message || '保存失败')
+    }
   } catch (e) {
     console.error('保存推荐配置失败', e)
+    ElMessage.error('保存失败，请稍后重试')
   } finally {
     recommendSaving.value = false
   }

@@ -45,7 +45,12 @@ public class RecommendationController {
 
     @PutMapping("/admin/recommendations/config")
     public Result<Void> updateConfig(@RequestBody SiteConfigService.RecommendationConfig config) {
+        if (config.getGuessYouLikeCount() < 1) config.setGuessYouLikeCount(6);
+        if (config.getGuessYouLikeCount() > 50) config.setGuessYouLikeCount(50);
+        if (config.getViewedAlsoViewCount() < 1) config.setViewedAlsoViewCount(6);
+        if (config.getViewedAlsoViewCount() > 50) config.setViewedAlsoViewCount(50);
         siteConfigService.setRecommendationConfig(config);
+        siteConfigService.clearCache();
         recommendationService.clearCache();
         return Result.ok();
     }

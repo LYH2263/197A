@@ -424,23 +424,20 @@ async function loadProduct() {
   guessYouLikeProducts.value = []
   viewedAlsoViewProducts.value = []
   try {
-    const [pRes, rRes] = await Promise.all([
+    const [pRes, rRes, cfgRes] = await Promise.all([
       api.get(`/products/${productId.value}`),
       api.get(`/reviews/product/${productId.value}`),
+      api.get('/recommendations/config').catch(() => null),
     ])
     if (pRes.data.code === 200) product.value = pRes.data.data
     if (rRes.data.code === 200) reviews.value = rRes.data.data || []
+    if (cfgRes && cfgRes.data && cfgRes.data.code === 200 && cfgRes.data.data) {
+      Object.assign(recommendConfig, cfgRes.data.data)
+    }
 
     if (product.value) {
       const cid = product.value.categoryId
       const pid = product.value.id
-
-      try {
-        const cfgRes = await api.get('/recommendations/config')
-        if (cfgRes.data.code === 200 && cfgRes.data.data) {
-          Object.assign(recommendConfig, cfgRes.data.data)
-        }
-      } catch {}
 
       const recPromises = []
       if (recommendConfig.guessYouLikeEnabled) {
@@ -457,7 +454,9 @@ async function loadProduct() {
             .catch(() => {})
         )
       }
-      await Promise.all(recPromises)
+      if (recPromises.length > 0) {
+        await Promise.all(recPromises)
+      }
     }
   } finally {
     loading.value = false

@@ -75,6 +75,10 @@ public class SiteConfigService {
         setConfig("recommendation", config);
     }
 
+    public void clearCache() {
+        cache.clear();
+    }
+
     @lombok.Data
     public static class RecommendationConfig {
         private boolean guessYouLikeEnabled = true;
