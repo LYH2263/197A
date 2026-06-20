@@ -21,9 +21,22 @@
           </el-button>
         </div>
 
-        <div class="print-area">
+        <div ref="printAreaRef" class="print-area">
           <div class="print-header print-only">
             <h2>订单详情</h2>
+          </div>
+
+          <div class="qr-section">
+            <div>
+              <div class="qr-order-no">订单号：{{ order.orderNo }}</div>
+              <el-tag :type="statusType(order.status)" effect="light" size="small">
+                {{ statusText(order.status) }}
+              </el-tag>
+            </div>
+            <div class="qr-code-wrap">
+              <img v-if="qrDataUrl" :src="qrDataUrl" alt="订单二维码" class="qr-code" />
+              <div class="qr-hint">扫码核销</div>
+            </div>
           </div>
 
           <el-descriptions :column="1" border class="info-table">
@@ -211,7 +224,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Printer, Download, Share } from '@element-plus/icons-vue'
@@ -227,10 +240,14 @@ const reviewVisible = ref(false)
 const reviewForm = reactive({ orderId: null, productId: null, rating: 5, content: '' })
 const reviewSubmitting = ref(false)
 const logisticsVisible = ref(false)
+const timeline = ref([])
+const payTime = ref(null)
 const pdfLoading = ref(false)
 const shareLoading = ref(false)
 const shareDialogVisible = ref(false)
 const shareLink = ref('')
+const printAreaRef = ref(null)
+const qrDataUrl = ref('')
 
 const orderId = computed(() => Number(route.params.id))
 
@@ -267,29 +284,6 @@ const showAfterSale = computed(() => {
   const diffDays = (now - completedAt) / (1000 * 60 * 60 * 24)
   return diffDays <= 7
 })
-
-const timeline = computed(() => {
-  if (!order.value) return []
-  const list = []
-  if (order.value.createdAt) {
-    list.push({ label: '下单', time: order.value.createdAt, type: 'primary' })
-  }
-  if (order.value.paidAt) {
-    list.push({ label: '支付', time: order.value.paidAt, type: 'primary' })
-  }
-  if (order.value.shippedAt) {
-    list.push({ label: '发货', time: order.value.shippedAt, type: '' })
-  }
-  if (order.value.completedAt) {
-    list.push({ label: '确认收货', time: order.value.completedAt, type: 'success' })
-  }
-  if (order.value.status === 4) {
-    list.push({ label: '订单取消', time: order.value.updatedAt || '-', type: 'info', hollow: true })
-  }
-  return list
-})
-
-const payTime = computed(() => order.value?.paidAt || null)
 
 function openReview(row) {
   reviewForm.orderId = orderId.value
@@ -378,6 +372,20 @@ function handlePrint() {
   window.print()
 }
 
+async function generateQrCode() {
+  if (!order.value) return
+  try {
+    const QRCode = (await import('qrcode')).default
+    qrDataUrl.value = await QRCode.toDataURL(order.value.orderNo, {
+      width: 160,
+      margin: 1,
+      color: { dark: '#303133', light: '#ffffff' },
+    })
+  } catch (e) {
+    console.warn('二维码生成失败', e)
+  }
+}
+
 async function generateShareLink() {
   shareLoading.value = true
   try {
@@ -402,121 +410,55 @@ async function exportPdf() {
   pdfLoading.value = true
   try {
     const { jsPDF } = await import('jspdf')
-    const QRCode = (await import('qrcode')).default
+    const html2canvas = (await import('html2canvas')).default
 
-    const doc = new jsPDF('p', 'mm', 'a4')
-    const pageW = 210
-    const margin = 20
-    const contentW = pageW - margin * 2
-    let y = 20
+    const el = printAreaRef.value
+    if (!el) throw new Error('打印区域不存在')
 
-    doc.setFontSize(18)
-    doc.text('Order Detail', margin, y)
-    y += 10
+    const canvas = await html2canvas(el, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#ffffff',
+    })
 
-    doc.setFontSize(10)
-    doc.text(`Order No: ${order.value.orderNo}`, margin, y)
-    y += 6
-    doc.text(`Status: ${statusText(order.value.status)}`, margin, y)
-    y += 6
-    doc.text(`Amount: CNY ${order.value.totalAmount}`, margin, y)
-    y += 6
-    doc.text(`Created: ${order.value.createdAt}`, margin, y)
-    y += 6
-    if (payTime.value) {
-      doc.text(`Paid: ${payTime.value}`, margin, y)
-      y += 6
-    }
-    if (order.value.shippedAt) {
-      doc.text(`Shipped: ${order.value.shippedAt}`, margin, y)
-      y += 6
-    }
-    if (order.value.completedAt) {
-      doc.text(`Completed: ${order.value.completedAt}`, margin, y)
-      y += 6
-    }
+    const imgData = canvas.toDataURL('image/png')
+    const imgWidth = canvas.width
+    const imgHeight = canvas.height
 
-    try {
-      const qrDataUrl = await QRCode.toDataURL(order.value.orderNo, { width: 120, margin: 1 })
-      doc.addImage(qrDataUrl, 'PNG', pageW - margin - 30, 20, 30, 30)
-    } catch (e) {
-      console.warn('QR generation failed', e)
-    }
+    const a4w = 210
+    const a4h = 297
+    const margin = 10
+    const contentW = a4w - margin * 2
+    const contentH = a4h - margin * 2
 
-    y += 4
-    doc.setDrawColor(200)
-    doc.line(margin, y, pageW - margin, y)
-    y += 8
+    const ratio = contentW / imgWidth
+    const printImgH = imgHeight * ratio
 
-    doc.setFontSize(12)
-    doc.text('Shipping Info', margin, y)
-    y += 6
-    doc.setFontSize(10)
-    doc.text(`Receiver: ${order.value.receiverName}  ${order.value.receiverPhone}`, margin, y)
-    y += 6
-    doc.text(`Address: ${order.value.receiverAddress}`, margin, y)
-    y += 8
+    const pdf = new jsPDF('p', 'mm', 'a4')
 
-    doc.setDrawColor(200)
-    doc.line(margin, y, pageW - margin, y)
-    y += 8
-
-    doc.setFontSize(12)
-    doc.text('Items', margin, y)
-    y += 6
-    doc.setFontSize(9)
-    doc.setTextColor(100)
-    doc.text('Product', margin, y)
-    doc.text('Price', margin + 70, y)
-    doc.text('Qty', margin + 100, y)
-    doc.text('Subtotal', margin + 120, y)
-    y += 4
-    doc.setDrawColor(220)
-    doc.line(margin, y, pageW - margin, y)
-    y += 4
-
-    doc.setTextColor(0)
-    doc.setFontSize(10)
-    for (const item of items.value) {
-      if (y > 270) {
-        doc.addPage()
-        y = 20
-      }
-      const name = item.productName.length > 20 ? item.productName.substring(0, 20) + '...' : item.productName
-      doc.text(name, margin, y)
-      doc.text(`CNY ${item.price}`, margin + 70, y)
-      doc.text(String(item.quantity), margin + 100, y)
-      doc.text(`CNY ${item.totalAmount}`, margin + 120, y)
-      y += 6
-    }
-
-    y += 2
-    doc.setDrawColor(200)
-    doc.line(margin, y, pageW - margin, y)
-    y += 6
-    doc.setFontSize(11)
-    doc.text(`Total: CNY ${order.value.totalAmount}`, margin + 100, y)
-    y += 10
-
-    if (timeline.value.length > 0) {
-      doc.setDrawColor(200)
-      doc.line(margin, y, pageW - margin, y)
-      y += 8
-      doc.setFontSize(12)
-      doc.text('Timeline', margin, y)
-      y += 6
-      doc.setFontSize(10)
-      for (const node of timeline.value) {
-        if (y > 275) {
-          doc.addPage()
-          y = 20
-        }
-        doc.text(`${node.label}  -  ${node.time}`, margin, y)
-        y += 6
+    if (printImgH <= contentH) {
+      pdf.addImage(imgData, 'PNG', margin, margin, contentW, printImgH)
+    } else {
+      const pageHeightPx = contentH / ratio
+      let yPos = 0
+      let page = 0
+      while (yPos < imgHeight) {
+        const sliceH = Math.min(pageHeightPx, imgHeight - yPos)
+        const sliceCanvas = document.createElement('canvas')
+        sliceCanvas.width = imgWidth
+        sliceCanvas.height = sliceH
+        const ctx = sliceCanvas.getContext('2d')
+        ctx.drawImage(canvas, 0, yPos, imgWidth, sliceH, 0, 0, imgWidth, sliceH)
+        const sliceData = sliceCanvas.toDataURL('image/png')
+        if (page > 0) pdf.addPage()
+        pdf.addImage(sliceData, 'PNG', margin, margin, contentW, sliceH * ratio)
+        yPos += pageHeightPx
+        page++
       }
     }
 
-    doc.save(`order-${order.value.orderNo}.pdf`)
+    pdf.save(`order-${order.value.orderNo}.pdf`)
     ElMessage.success('PDF 已导出')
   } catch (e) {
     console.error('PDF export failed', e)
@@ -540,6 +482,8 @@ async function load() {
     productReviews.value = new Set(
       myReviews.filter((r) => Number(r.orderId) === orderId.value).map((r) => r.productId)
     )
+    await loadTimeline()
+    generateQrCode()
   } finally {
     loading.value = false
   }
@@ -579,6 +523,42 @@ onMounted(load)
   font-weight: 600;
   color: var(--color-text);
   font-size: 0.9375rem;
+}
+
+.qr-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding: 16px;
+  background: var(--color-bg-soft, #f8f9fa);
+  border-radius: 8px;
+}
+
+.qr-order-no {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 8px;
+}
+
+.qr-code-wrap {
+  text-align: center;
+}
+
+.qr-code {
+  width: 80px;
+  height: 80px;
+  display: block;
+  margin: 0 auto 4px;
+  background: #fff;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.qr-hint {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
 }
 
 .info-table {
