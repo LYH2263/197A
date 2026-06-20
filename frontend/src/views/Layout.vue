@@ -81,13 +81,14 @@
 </template>
 
 <script setup>
-import { onMounted, computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { onMounted, computed, ref, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '../stores/user'
 import api from '../api'
 import { Loading, ArrowDown } from '@element-plus/icons-vue'
 
 const router = useRouter()
+const route = useRoute()
 const userStore = useUserStore()
 const notifications = ref([])
 const unreadCount = ref(0)
@@ -159,6 +160,17 @@ onMounted(async () => {
       userStore.saveForLaterCount = 0
     }
     fetchUnreadCount()
+  }
+})
+
+watch(() => route.path, async () => {
+  if (userStore.isLoggedIn) {
+    try {
+      const res = await api.get('/save-for-later/count')
+      if (res.data.code === 200) {
+        userStore.saveForLaterCount = res.data.data || 0
+      }
+    } catch {}
   }
 })
 

@@ -18,6 +18,8 @@ public class SaveForLaterVO {
     private Boolean priceDropped;
     private Integer stock;
     private Integer quantity;
+    private Boolean offline;
+    private Integer productStatus;
     private Long alertId;
     private BigDecimal alertTargetPrice;
     private LocalDateTime createdAt;

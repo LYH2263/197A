@@ -18,7 +18,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -32,7 +34,7 @@ public class SaveForLaterService {
     private final PriceAlertMapper priceAlertMapper;
 
     @Transactional(rollbackFor = Exception.class)
-    public void moveToSaveForLater(Long userId, Long productId) {
+    public Map<String, Object> moveToSaveForLater(Long userId, Long productId) {
         CartItem cartItem = cartItemMapper.selectByUserIdAndProductId(userId, productId);
         if (cartItem == null) {
             throw new IllegalArgumentException("购物车中无该商品");
@@ -60,41 +62,89 @@ public class SaveForLaterService {
 
         cartItemMapper.deleteByUserIdAndProductId(userId, productId);
         log.info("Moved to save-for-later: userId={}, productId={}", userId, productId);
-    }
 
-    @Transactional(rollbackFor = Exception.class)
-    public void batchMoveToCart(Long userId, List<Long> productIds) {
-        for (Long productId : productIds) {
-            moveBackToCart(userId, productId);
+        Map<String, Object> result = new HashMap<>();
+        boolean isOffline = product.getStatus() == null || product.getStatus() != 1;
+        if (isOffline) {
+            result.put("message", "商品「" + product.getName() + "」已下架，移入稍后购买后将无法直接购买");
         }
+        return result;
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void moveBackToCart(Long userId, Long productId) {
+    public Map<String, Object> batchMoveToCart(Long userId, List<Long> productIds) {
+        List<String> messages = new ArrayList<>();
+        int movedCount = 0;
+        for (Long productId : productIds) {
+            try {
+                Map<String, Object> result = moveBackToCart(userId, productId);
+                movedCount++;
+                if (result.get("message") != null) {
+                    messages.add((String) result.get("message"));
+                }
+            } catch (IllegalArgumentException e) {
+                messages.add(e.getMessage());
+            }
+        }
+        Map<String, Object> summary = new HashMap<>();
+        summary.put("movedCount", movedCount);
+        summary.put("messages", messages);
+        return summary;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public Map<String, Object> moveBackToCart(Long userId, Long productId) {
         SaveForLater item = saveForLaterMapper.selectByUserIdAndProductId(userId, productId);
         if (item == null) {
             throw new IllegalArgumentException("稍后购买中无该商品");
         }
         Product product = productMapper.selectById(productId);
         if (product == null) {
-            throw new IllegalArgumentException("商品不存在");
+            throw new IllegalArgumentException("商品已不存在，无法移回购物车");
+        }
+        if (product.getStatus() == null || product.getStatus() != 1) {
+            throw new IllegalArgumentException("商品「" + product.getName() + "」已下架，无法移回购物车");
+        }
+
+        int availableStock = product.getStock() != null ? product.getStock() : 0;
+        int finalQuantity = item.getQuantity();
+        String message = null;
+
+        if (availableStock <= 0) {
+            throw new IllegalArgumentException("商品「" + product.getName() + "」库存为零，无法移回购物车");
+        }
+        if (availableStock < item.getQuantity()) {
+            finalQuantity = availableStock;
+            message = "商品「" + product.getName() + "」库存仅剩 " + availableStock + " 件，已自动调整数量";
         }
 
         CartItem existingCart = cartItemMapper.selectByUserIdAndProductId(userId, productId);
         if (existingCart != null) {
-            existingCart.setQuantity(existingCart.getQuantity() + item.getQuantity());
+            int combinedQuantity = existingCart.getQuantity() + finalQuantity;
+            int maxCombined = Math.min(combinedQuantity, availableStock);
+            if (maxCombined < combinedQuantity) {
+                message = "商品「" + product.getName() + "」库存仅剩 " + availableStock + " 件，已自动调整数量";
+            }
+            existingCart.setQuantity(maxCombined);
+            existingCart.setPriceSnapshot(product.getPrice());
             cartItemMapper.updateById(existingCart);
         } else {
             CartItem cartItem = new CartItem();
             cartItem.setUserId(userId);
             cartItem.setProductId(productId);
-            cartItem.setQuantity(item.getQuantity());
+            cartItem.setQuantity(finalQuantity);
             cartItem.setChecked(0);
+            cartItem.setPriceSnapshot(product.getPrice());
             cartItemMapper.insert(cartItem);
         }
 
         saveForLaterMapper.deleteByUserIdAndProductId(userId, productId);
-        log.info("Moved back to cart: userId={}, productId={}", userId, productId);
+        log.info("Moved back to cart: userId={}, productId={}, quantity={}", userId, productId, finalQuantity);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("adjustedQuantity", finalQuantity);
+        result.put("message", message);
+        return result;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -124,6 +174,10 @@ public class SaveForLaterService {
             vo.setStock(p.getStock());
             vo.setQuantity(item.getQuantity());
             vo.setCreatedAt(item.getCreatedAt());
+
+            boolean offline = p.getStatus() == null || p.getStatus() != 1;
+            vo.setOffline(offline);
+            vo.setProductStatus(p.getStatus() != null ? p.getStatus() : 0);
 
             BigDecimal drop = item.getPriceSnapshot().subtract(p.getPrice());
             vo.setPriceDropped(drop.compareTo(BigDecimal.ZERO) > 0);

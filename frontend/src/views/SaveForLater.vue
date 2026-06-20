@@ -27,7 +27,10 @@
             v-for="item in items"
             :key="item.productId"
             class="sfl-item"
-            :class="{ 'price-dropped': item.priceDropped }"
+            :class="{
+              'price-dropped': item.priceDropped && !item.offline,
+              'sfl-item-offline': item.offline
+            }"
           >
             <div class="sfl-item-check">
               <el-checkbox
@@ -40,24 +43,33 @@
                 :src="item.productImage || '/images/default-product.svg'"
                 alt=""
                 class="sfl-item-img"
+                :class="{ 'img-grayscale': item.offline }"
                 @error="$event.target.src = '/images/default-product.svg'"
               />
               <div class="sfl-item-info">
-                <span class="name">{{ item.productName }}</span>
+                <div class="name-row">
+                  <span class="name" :class="{ 'text-muted': item.offline }">{{ item.productName }}</span>
+                  <el-tag v-if="item.offline" type="info" size="small" effect="dark">已下架</el-tag>
+                  <el-tag v-else-if="item.stock !== null && item.stock <= 0" type="danger" size="small" effect="light">无库存</el-tag>
+                  <el-tag v-else-if="item.stock !== null && item.stock < item.quantity" type="warning" size="small" effect="light">库存不足</el-tag>
+                </div>
                 <div class="price-row">
-                  <span class="current-price">¥ {{ item.currentPrice }}</span>
-                  <span v-if="item.priceDropped" class="price-drop-tag">
+                  <span class="current-price" :class="{ 'text-muted': item.offline }">¥ {{ item.currentPrice }}</span>
+                  <span v-if="item.priceDropped && !item.offline" class="price-drop-tag">
                     降价 ¥{{ item.priceDrop }}
                   </span>
                 </div>
-                <div v-if="item.priceDropped" class="price-snapshot-info">
+                <div v-if="item.priceDropped && !item.offline" class="price-snapshot-info">
                   移入时 ¥{{ item.priceSnapshot }} → 现在 ¥{{ item.currentPrice }}
                 </div>
-                <div class="quantity-info">数量：{{ item.quantity }}</div>
+                <div class="quantity-info">数量：{{ item.quantity }}<template v-if="!item.offline && item.stock !== null">（库存 {{ item.stock }}）</template></div>
               </div>
             </div>
             <div class="sfl-item-alert">
-              <template v-if="item.alertId">
+              <template v-if="item.offline">
+                <span class="offline-hint">该商品已下架，无法移回购物车</span>
+              </template>
+              <template v-else-if="item.alertId">
                 <el-tag size="small" type="warning">目标价 ¥{{ item.alertTargetPrice }}</el-tag>
                 <el-button link size="small" @click="cancelAlert(item)">取消提醒</el-button>
               </template>
@@ -68,7 +80,12 @@
               </template>
             </div>
             <div class="sfl-item-actions">
-              <el-button type="primary" link @click="moveBack(item)">移回购物车</el-button>
+              <el-button
+                v-if="!item.offline"
+                type="primary"
+                link
+                @click="moveBack(item)"
+              >移回购物车</el-button>
               <el-button type="danger" link @click="deleteItem(item)">删除</el-button>
             </div>
           </div>
@@ -120,17 +137,26 @@ const selectAll = computed({
   set: () => {}
 })
 
+async function syncCount() {
+  try {
+    const res = await api.get('/save-for-later/count')
+    if (res.data.code === 200) {
+      userStore.saveForLaterCount = res.data.data || 0
+    }
+  } catch {}
+}
+
 async function load() {
   loading.value = true
   try {
     const res = await api.get('/save-for-later', { params: { sortBy: sortBy.value } })
     if (res.data.code === 200) {
       items.value = res.data.data || []
-      userStore.saveForLaterCount = items.value.length
     }
   } finally {
     loading.value = false
   }
+  await syncCount()
 }
 
 function onSelectAllChange(val) {
@@ -149,26 +175,47 @@ function toggleSelect(productId, checked) {
 
 async function moveBack(item) {
   try {
-    await api.post('/save-for-later/move-back', { productId: item.productId })
+    const res = await api.post('/save-for-later/move-back', { productId: item.productId })
     items.value = items.value.filter((i) => i.productId !== item.productId)
     selectedIds.value = selectedIds.value.filter((id) => id !== item.productId)
-    userStore.saveForLaterCount = items.value.length
-    userStore.cartCount = (userStore.cartCount || 0) + item.quantity
-    ElMessage.success('已移回购物车')
+    if (res.data.code === 200 && res.data.data?.message) {
+      ElMessage.warning(res.data.data.message)
+    } else {
+      ElMessage.success('已移回购物车')
+    }
+    await syncCount()
+    try {
+      const cartRes = await api.get('/cart')
+      if (cartRes.data.code === 200 && Array.isArray(cartRes.data.data)) {
+        userStore.cartCount = cartRes.data.data.reduce((s, i) => s + (i.quantity || 0), 0)
+      }
+    } catch {}
   } catch (e) {}
 }
 
 async function batchMoveBack() {
   try {
-    await api.post('/save-for-later/batch-move-back', { productIds: selectedIds.value })
-    const movedQuantity = items.value
-      .filter((i) => selectedIds.value.includes(i.productId))
-      .reduce((s, i) => s + i.quantity, 0)
-    items.value = items.value.filter((i) => !selectedIds.value.includes(i.productId))
-    userStore.saveForLaterCount = items.value.length
-    userStore.cartCount = (userStore.cartCount || 0) + movedQuantity
+    const res = await api.post('/save-for-later/batch-move-back', { productIds: selectedIds.value })
+    if (res.data.code === 200 && res.data.data) {
+      const data = res.data.data
+      const messages = data.messages || []
+      if (messages.length > 0) {
+        for (const msg of messages) {
+          ElMessage.warning({ message: msg, duration: 4000 })
+        }
+      }
+      if (data.movedCount > 0) {
+        ElMessage.success(`成功移回 ${data.movedCount} 件商品`)
+      }
+    }
+    await load()
     selectedIds.value = []
-    ElMessage.success('已批量移回购物车')
+    try {
+      const cartRes = await api.get('/cart')
+      if (cartRes.data.code === 200 && Array.isArray(cartRes.data.data)) {
+        userStore.cartCount = cartRes.data.data.reduce((s, i) => s + (i.quantity || 0), 0)
+      }
+    } catch {}
   } catch (e) {}
 }
 
@@ -178,7 +225,7 @@ async function deleteItem(item) {
     await api.delete(`/save-for-later/${item.productId}`)
     items.value = items.value.filter((i) => i.productId !== item.productId)
     selectedIds.value = selectedIds.value.filter((id) => id !== item.productId)
-    userStore.saveForLaterCount = items.value.length
+    await syncCount()
   } catch (e) {
     if (e !== 'cancel') throw e
   }
@@ -189,8 +236,8 @@ async function batchDelete() {
     await ElMessageBox.confirm(`确定删除选中的 ${selectedIds.value.length} 件商品？`, '提示')
     await api.post('/save-for-later/batch-delete', { productIds: selectedIds.value })
     items.value = items.value.filter((i) => !selectedIds.value.includes(i.productId))
-    userStore.saveForLaterCount = items.value.length
     selectedIds.value = []
+    await syncCount()
     ElMessage.success('已批量删除')
   } catch (e) {
     if (e !== 'cancel') throw e
@@ -283,6 +330,11 @@ onMounted(load)
   background: #fdf6ec;
 }
 
+.sfl-item.sfl-item-offline {
+  border-color: #dcdfe6;
+  background: #f5f7fa;
+}
+
 .sfl-item-check {
   flex-shrink: 0;
 }
@@ -305,15 +357,32 @@ onMounted(load)
   flex-shrink: 0;
 }
 
+.sfl-item-img.img-grayscale {
+  filter: grayscale(100%);
+  opacity: 0.7;
+}
+
 .sfl-item-info {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
+.name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .sfl-item-info .name {
   font-weight: 500;
   color: var(--color-text);
+}
+
+.sfl-item-info .name.text-muted {
+  color: #909399;
+  text-decoration: line-through;
 }
 
 .price-row {
@@ -325,6 +394,10 @@ onMounted(load)
 .current-price {
   color: var(--color-primary);
   font-weight: 600;
+}
+
+.current-price.text-muted {
+  color: #909399;
 }
 
 .price-drop-tag {
@@ -351,6 +424,12 @@ onMounted(load)
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.offline-hint {
+  font-size: 0.75rem;
+  color: #909399;
+  max-width: 120px;
 }
 
 .sfl-item-actions {

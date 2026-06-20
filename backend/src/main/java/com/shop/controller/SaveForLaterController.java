@@ -38,29 +38,29 @@ public class SaveForLaterController {
     }
 
     @PostMapping("/move")
-    public Result<Void> moveToSaveForLater(Authentication auth, @RequestBody Map<String, Object> body) {
+    public Result<Map<String, Object>> moveToSaveForLater(Authentication auth, @RequestBody Map<String, Object> body) {
         Long userId = requireUserId(auth);
         Long productId = ((Number) body.get("productId")).longValue();
-        saveForLaterService.moveToSaveForLater(userId, productId);
-        return Result.ok();
+        Map<String, Object> result = saveForLaterService.moveToSaveForLater(userId, productId);
+        return Result.ok(result);
     }
 
     @PostMapping("/move-back")
-    public Result<Void> moveBackToCart(Authentication auth, @RequestBody Map<String, Object> body) {
+    public Result<Map<String, Object>> moveBackToCart(Authentication auth, @RequestBody Map<String, Object> body) {
         Long userId = requireUserId(auth);
         Long productId = ((Number) body.get("productId")).longValue();
-        saveForLaterService.moveBackToCart(userId, productId);
-        return Result.ok();
+        Map<String, Object> result = saveForLaterService.moveBackToCart(userId, productId);
+        return Result.ok(result);
     }
 
     @PostMapping("/batch-move-back")
-    public Result<Void> batchMoveBackToCart(Authentication auth, @RequestBody Map<String, Object> body) {
+    public Result<Map<String, Object>> batchMoveBackToCart(Authentication auth, @RequestBody Map<String, Object> body) {
         Long userId = requireUserId(auth);
         @SuppressWarnings("unchecked")
         List<Long> productIds = ((List<Number>) body.get("productIds")).stream()
                 .map(Number::longValue).toList();
-        saveForLaterService.batchMoveToCart(userId, productIds);
-        return Result.ok();
+        Map<String, Object> result = saveForLaterService.batchMoveToCart(userId, productIds);
+        return Result.ok(result);
     }
 
     @DeleteMapping("/{productId}")

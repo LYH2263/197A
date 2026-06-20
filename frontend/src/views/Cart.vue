@@ -108,8 +108,9 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessageBox } from 'element-plus'
+import { ElMessageBox, ElMessage } from 'element-plus'
 import cartService from '../services/CartService'
+import api from '../api'
 import { useUserStore } from '../stores/user'
 
 const router = useRouter()
@@ -261,11 +262,19 @@ async function remove(row) {
 async function moveToSaveForLater(row) {
   try {
     cartService.flushAll()
-    await cartService.moveToSaveForLater(row.productId)
+    const res = await cartService.moveToSaveForLater(row.productId)
     items.value = items.value.filter(i => i.productId !== row.productId)
     selected.value = selected.value.filter(s => s.productId !== row.productId)
     userStore.cartCount = items.value.reduce((s, i) => s + (i.quantity || 0), 0)
-    userStore.saveForLaterCount = (userStore.saveForLaterCount || 0) + row.quantity
+    if (res.data.code === 200 && res.data.data?.message) {
+      ElMessage.warning(res.data.data.message)
+    }
+    try {
+      const countRes = await api.get('/save-for-later/count')
+      if (countRes.data.code === 200) {
+        userStore.saveForLaterCount = countRes.data.data || 0
+      }
+    } catch {}
   } catch (e) {}
 }
 
