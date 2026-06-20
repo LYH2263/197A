@@ -58,6 +58,7 @@
                 show-stops
                 show-input
                 :format-tooltip="(val) => '¥' + val"
+                @change="onPriceRangeChange"
               />
               <div class="price-display">
                 ¥{{ priceRange[0] }} - ¥{{ priceRange[1] }}
@@ -214,8 +215,7 @@ const filters = reactive({
   stockStatus: '',
   startDate: '',
   endDate: '',
-  sortBy: '',
-  sortOrder: ''
+  sortBy: ''
 })
 
 const categoryTree = computed(() => {
@@ -278,19 +278,6 @@ function handleCategoryCheck(data, checkedInfo) {
 }
 
 function applyFilters() {
-  if (filters.sortBy === 'price_asc') {
-    filters.sortBy = 'price'
-    filters.sortOrder = 'asc'
-  } else if (filters.sortBy === 'price_desc') {
-    filters.sortBy = 'price'
-    filters.sortOrder = 'desc'
-  } else if (filters.sortBy === 'sales' || filters.sortBy === 'new_arrivals' || filters.sortBy === 'reviews') {
-    filters.sortOrder = ''
-  } else {
-    filters.sortBy = ''
-    filters.sortOrder = ''
-  }
-
   filters.minPrice = priceRange.value[0] > 0 ? priceRange.value[0] : null
   filters.maxPrice = priceRange.value[1] < 10000 ? priceRange.value[1] : null
 
@@ -306,6 +293,19 @@ function applyFilters() {
   load()
 }
 
+function onPriceRangeChange() {
+  applyFilters()
+}
+
+function parseSortBy(uiValue) {
+  if (uiValue === 'price_asc') return { sortBy: 'price', sortOrder: 'asc' }
+  if (uiValue === 'price_desc') return { sortBy: 'price', sortOrder: 'desc' }
+  if (uiValue === 'sales' || uiValue === 'new_arrivals' || uiValue === 'reviews') {
+    return { sortBy: uiValue, sortOrder: '' }
+  }
+  return { sortBy: '', sortOrder: '' }
+}
+
 function syncToUrl() {
   const query = {}
   if (filters.keyword) query.keyword = filters.keyword
@@ -315,13 +315,7 @@ function syncToUrl() {
   if (filters.stockStatus) query.stockStatus = filters.stockStatus
   if (filters.startDate) query.startDate = filters.startDate
   if (filters.endDate) query.endDate = filters.endDate
-  if (filters.sortBy) {
-    if (filters.sortBy === 'price') {
-      query.sortBy = filters.sortOrder === 'asc' ? 'price_asc' : 'price_desc'
-    } else {
-      query.sortBy = filters.sortBy
-    }
-  }
+  if (filters.sortBy) query.sortBy = filters.sortBy
   router.replace({ query })
 }
 
@@ -334,12 +328,7 @@ function restoreFromUrl() {
   if (q.stockStatus) filters.stockStatus = q.stockStatus
   if (q.startDate) filters.startDate = q.startDate
   if (q.endDate) filters.endDate = q.endDate
-  if (q.sortBy) {
-    filters.sortBy = q.sortBy
-    if (q.sortBy === 'price_asc' || q.sortBy === 'price_desc') {
-      filters.sortOrder = q.sortBy === 'price_asc' ? 'asc' : 'desc'
-    }
-  }
+  if (q.sortBy) filters.sortBy = q.sortBy
 
   priceRange.value = [filters.minPrice ?? 0, filters.maxPrice ?? 10000]
   if (filters.startDate && filters.endDate) {
@@ -384,7 +373,6 @@ function clearAllFilters() {
   filters.startDate = ''
   filters.endDate = ''
   filters.sortBy = ''
-  filters.sortOrder = ''
   priceRange.value = [0, 10000]
   dateRange.value = []
   if (categoryTreeRef.value) {
@@ -404,8 +392,9 @@ async function load() {
     if (filters.stockStatus) params.stockStatus = filters.stockStatus
     if (filters.startDate) params.startDate = filters.startDate + ' 00:00:00'
     if (filters.endDate) params.endDate = filters.endDate + ' 23:59:59'
-    if (filters.sortBy) params.sortBy = filters.sortBy
-    if (filters.sortOrder) params.sortOrder = filters.sortOrder
+    const sort = parseSortBy(filters.sortBy)
+    if (sort.sortBy) params.sortBy = sort.sortBy
+    if (sort.sortOrder) params.sortOrder = sort.sortOrder
     const res = await api.get('/products', { params })
     products.value = res.data.code === 200 ? (res.data.data || []) : []
   } catch (e) {
