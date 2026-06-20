@@ -19,6 +19,18 @@ services:
       timeout: 5s
       retries: 10
 
+  db-migrate:
+    image: mysql:8.0
+    container_name: shop-db-migrate-197
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./scripts/init:/scripts:ro
+      - ./scripts/run-migrations.sh:/run-migrations.sh:ro
+    entrypoint: ["bash", "/run-migrations.sh"]
+    restart: "no"
+
   backend:
     build:
       context: ./backend
@@ -27,6 +39,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/shop?useUnicode=true&characterEncoding=UTF-8&connectionCollation=utf8mb4_0900_ai_ci&serverTimezone=Asia/Shanghai
       SPRING_DATASOURCE_USERNAME: shop

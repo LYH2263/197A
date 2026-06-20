@@ -1,6 +1,21 @@
 -- 订单主表增加地址关联字段（如果不存在）
-ALTER TABLE `order_main` ADD COLUMN IF NOT EXISTS `shipping_address_id` BIGINT DEFAULT NULL COMMENT '关联地址ID' AFTER `receiver_address`;
-ALTER TABLE `order_main` ADD KEY IF NOT EXISTS `idx_shipping_address` (`shipping_address_id`);
+SET NAMES utf8mb4;
+USE shop;
+
+DROP PROCEDURE IF EXISTS add_order_shipping_address_id;
+DELIMITER //
+CREATE PROCEDURE add_order_shipping_address_id()
+BEGIN
+  IF (SELECT COUNT(*) FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'order_main' AND COLUMN_NAME = 'shipping_address_id') = 0 THEN
+    ALTER TABLE `order_main`
+      ADD COLUMN `shipping_address_id` BIGINT DEFAULT NULL COMMENT '关联地址ID' AFTER `receiver_address`,
+      ADD KEY `idx_shipping_address` (`shipping_address_id`);
+  END IF;
+END //
+DELIMITER ;
+CALL add_order_shipping_address_id();
+DROP PROCEDURE add_order_shipping_address_id;
 
 -- 收货地址表
 CREATE TABLE IF NOT EXISTS `shipping_address` (
