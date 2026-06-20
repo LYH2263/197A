@@ -14,6 +14,7 @@
         <result column="logistics_company" property="logisticsCompany"/>
         <result column="tracking_no" property="trackingNo"/>
         <result column="shipping_remark" property="shippingRemark"/>
+        <result column="paid_at" property="paidAt"/>
         <result column="shipped_at" property="shippedAt"/>
         <result column="completed_at" property="completedAt"/>
         <result column="created_at" property="createdAt"/>
@@ -34,6 +35,9 @@
     </select>
     <update id="updateStatus">
         UPDATE order_main SET status = #{status} WHERE id = #{id}
+    </update>
+    <update id="updatePaid">
+        UPDATE order_main SET status = #{status}, paid_at = #{paidAt} WHERE id = #{id}
     </update>
     <select id="countPendingByAddressId" resultType="int">
         SELECT COUNT(*) FROM order_main

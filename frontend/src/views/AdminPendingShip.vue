@@ -129,7 +129,7 @@ function statusText(s) { return STATUS_TEXT[s] ?? '未知' }
 function statusType(s) { return STATUS_TYPE[s] ?? 'info' }
 
 function viewOrder(order) {
-  window.open(`/orders/${order.id}`, '_blank')
+  router.push(`/admin/orders/${order.id}`)
 }
 
 function openShip(order) {

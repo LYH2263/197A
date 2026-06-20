@@ -206,7 +206,7 @@ public class OrderService {
         if (!OrderStatus.canTransition(from, to)) {
             throw new IllegalArgumentException("订单状态不允许支付：当前 " + OrderStatus.text(from));
         }
-        orderMainMapper.updateStatus(orderId, to);
+        orderMainMapper.updatePaid(orderId, to, LocalDateTime.now());
         writeLog(orderId, order.getOrderNo(), userId, resolveUserName(userId), "user",
                 OrderStatus.OP_PAY, from, to, "支付订单", null);
         log.info("Order paid: orderId={}", orderId);
@@ -369,15 +369,14 @@ public class OrderService {
         if (order.getCreatedAt() != null) {
             timeline.add(Map.of("label", "下单", "time", formatDateTime(order.getCreatedAt())));
         }
-        if (order.getStatus() >= 1 && order.getCreatedAt() != null) {
-            List<OrderOperationLog> logs = orderOperationLogMapper.selectByOrderId(order.getId());
-            logs.stream()
-                .filter(l -> "PAY".equals(l.getOperation()))
-                .findFirst()
-                .ifPresent(l -> timeline.add(Map.of("label", "支付", "time", formatDateTime(l.getCreatedAt()))));
+        if (order.getPaidAt() != null) {
+            timeline.add(Map.of("label", "支付", "time", formatDateTime(order.getPaidAt())));
         }
-        if (order.getStatus() >= 2 && order.getShippedAt() != null) {
+        if (order.getShippedAt() != null) {
             timeline.add(Map.of("label", "发货", "time", formatDateTime(order.getShippedAt())));
+        }
+        if (order.getCompletedAt() != null) {
+            timeline.add(Map.of("label", "确认收货", "time", formatDateTime(order.getCompletedAt())));
         }
         return timeline;
     }

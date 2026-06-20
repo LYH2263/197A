@@ -26,6 +26,7 @@ public class OrderMain implements Serializable {
     private String logisticsCompany;
     private String trackingNo;
     private String shippingRemark;
+    private LocalDateTime paidAt;
     private LocalDateTime shippedAt;
     private LocalDateTime completedAt;
     private LocalDateTime createdAt;

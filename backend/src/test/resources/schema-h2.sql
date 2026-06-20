@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS order_main (
   logistics_company VARCHAR(64),
   tracking_no VARCHAR(64),
   shipping_remark VARCHAR(256),
+  paid_at TIMESTAMP,
   shipped_at TIMESTAMP,
   completed_at TIMESTAMP,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

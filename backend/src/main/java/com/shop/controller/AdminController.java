@@ -12,6 +12,7 @@ import com.shop.dto.ShipRequest;
 import com.shop.dto.UserVO;
 import com.shop.entity.Category;
 import com.shop.entity.OrderMain;
+import com.shop.entity.OrderItem;
 import com.shop.entity.Product;
 import com.shop.entity.ProductImage;
 import com.shop.service.AdminService;
@@ -102,6 +103,11 @@ public class AdminController {
             return Result.fail(404, "订单不存在");
         }
         return Result.ok(order);
+    }
+
+    @GetMapping("/orders/{id}/items")
+    public Result<List<OrderItem>> getOrderItems(@PathVariable Long id) {
+        return Result.ok(adminService.listOrderItems(id));
     }
 
     @PostMapping("/orders/ship")

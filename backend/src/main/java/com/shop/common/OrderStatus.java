@@ -26,7 +26,7 @@ public final class OrderStatus {
     static {
         Map<Integer, Set<Integer>> m = new HashMap<>();
         m.put(PENDING_PAYMENT, Set.of(PAID, CANCELLED));
-        m.put(PAID,          Set.of(SHIPPED, CANCELLED));
+        m.put(PAID,          Set.of(SHIPPED));
         m.put(SHIPPED,       Set.of(COMPLETED));
         m.put(COMPLETED,     Collections.emptySet());
         m.put(CANCELLED,     Collections.emptySet());

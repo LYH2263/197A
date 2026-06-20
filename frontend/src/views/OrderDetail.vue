@@ -109,15 +109,17 @@
             <el-divider content-position="left">
               <span class="divider-title">订单时间线</span>
             </el-divider>
-            <el-timeline>
+            <el-timeline class="order-timeline">
               <el-timeline-item
                 v-for="(node, idx) in timeline"
                 :key="idx"
                 :timestamp="node.time"
                 placement="top"
-                :type="idx === timeline.length - 1 ? 'primary' : 'info'"
+                :type="node.type"
+                :hollow="node.hollow"
               >
-                {{ node.label }}
+                <div class="timeline-item-label">{{ node.label }}</div>
+                <div class="timeline-item-time">{{ node.time }}</div>
               </el-timeline-item>
             </el-timeline>
           </template>
@@ -225,8 +227,6 @@ const reviewVisible = ref(false)
 const reviewForm = reactive({ orderId: null, productId: null, rating: 5, content: '' })
 const reviewSubmitting = ref(false)
 const logisticsVisible = ref(false)
-const timeline = ref([])
-const payTime = ref(null)
 const pdfLoading = ref(false)
 const shareLoading = ref(false)
 const shareDialogVisible = ref(false)
@@ -267,6 +267,29 @@ const showAfterSale = computed(() => {
   const diffDays = (now - completedAt) / (1000 * 60 * 60 * 24)
   return diffDays <= 7
 })
+
+const timeline = computed(() => {
+  if (!order.value) return []
+  const list = []
+  if (order.value.createdAt) {
+    list.push({ label: '下单', time: order.value.createdAt, type: 'primary' })
+  }
+  if (order.value.paidAt) {
+    list.push({ label: '支付', time: order.value.paidAt, type: 'primary' })
+  }
+  if (order.value.shippedAt) {
+    list.push({ label: '发货', time: order.value.shippedAt, type: '' })
+  }
+  if (order.value.completedAt) {
+    list.push({ label: '确认收货', time: order.value.completedAt, type: 'success' })
+  }
+  if (order.value.status === 4) {
+    list.push({ label: '订单取消', time: order.value.updatedAt || '-', type: 'info', hollow: true })
+  }
+  return list
+})
+
+const payTime = computed(() => order.value?.paidAt || null)
 
 function openReview(row) {
   reviewForm.orderId = orderId.value
@@ -373,19 +396,6 @@ async function generateShareLink() {
 
 function copyShareLink() {
   copyText(shareLink.value, '分享链接已复制')
-}
-
-async function loadTimeline() {
-  try {
-    const res = await api.get(`/orders/${orderId.value}/timeline`)
-    if (res.data.code === 200) {
-      timeline.value = res.data.data || []
-      const payNode = timeline.value.find(n => n.label === '支付')
-      if (payNode) payTime.value = payNode.time
-    }
-  } catch (e) {
-    timeline.value = []
-  }
 }
 
 async function exportPdf() {
@@ -530,7 +540,6 @@ async function load() {
     productReviews.value = new Set(
       myReviews.filter((r) => Number(r.orderId) === orderId.value).map((r) => r.productId)
     )
-    await loadTimeline()
   } finally {
     loading.value = false
   }
@@ -605,6 +614,22 @@ onMounted(load)
 
 .logistics-info {
   padding: 4px 0;
+}
+
+.order-timeline {
+  padding: 0 8px 8px 8px;
+}
+
+.timeline-item-label {
+  font-weight: 600;
+  color: var(--color-text);
+  font-size: 0.9375rem;
+}
+
+.timeline-item-time {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  margin-top: 2px;
 }
 
 .toolbar {

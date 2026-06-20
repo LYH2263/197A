@@ -22,6 +22,10 @@ public interface OrderMainMapper {
 
     int updateStatus(@Param("id") Long id, @Param("status") Integer status);
 
+    int updatePaid(@Param("id") Long id,
+                   @Param("status") Integer status,
+                   @Param("paidAt") java.time.LocalDateTime paidAt);
+
     int countPendingByAddressId(@Param("addressId") Long addressId, @Param("userId") Long userId);
 
     int updateShipInfo(@Param("id") Long id,

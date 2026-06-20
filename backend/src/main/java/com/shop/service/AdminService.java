@@ -12,10 +12,12 @@ import com.shop.dto.ShipRequest;
 import com.shop.dto.UserVO;
 import com.shop.entity.Category;
 import com.shop.entity.OrderMain;
+import com.shop.entity.OrderItem;
 import com.shop.entity.OrderOperationLog;
 import com.shop.entity.Product;
 import com.shop.entity.User;
 import com.shop.mapper.CategoryMapper;
+import com.shop.mapper.OrderItemMapper;
 import com.shop.mapper.OrderMainMapper;
 import com.shop.mapper.OrderOperationLogMapper;
 import com.shop.mapper.ProductMapper;
@@ -54,6 +56,7 @@ public class AdminService {
     private final UserMapper userMapper;
     private final ReviewService reviewService;
     private final OrderMainMapper orderMainMapper;
+    private final OrderItemMapper orderItemMapper;
     private final OrderOperationLogMapper orderOperationLogMapper;
     private final ProductMapper productMapper;
     private final CategoryMapper categoryMapper;
@@ -120,6 +123,10 @@ public class AdminService {
 
     public OrderMain getOrderById(Long id) {
         return orderMainMapper.selectById(id);
+    }
+
+    public List<OrderItem> listOrderItems(Long orderId) {
+        return orderItemMapper.selectByOrderId(orderId);
     }
 
     @Transactional(rollbackFor = Exception.class)

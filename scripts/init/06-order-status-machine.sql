@@ -12,7 +12,8 @@ ALTER TABLE `order_main`
     ADD COLUMN `logistics_company` VARCHAR(64)  DEFAULT NULL COMMENT '物流公司名称' AFTER `receiver_address`,
     ADD COLUMN `tracking_no`       VARCHAR(64)  DEFAULT NULL COMMENT '运单号'         AFTER `logistics_company`,
     ADD COLUMN `shipping_remark`   VARCHAR(256) DEFAULT NULL COMMENT '发货备注'       AFTER `tracking_no`,
-    ADD COLUMN `shipped_at`        DATETIME     DEFAULT NULL COMMENT '发货时间'       AFTER `shipping_remark`,
+    ADD COLUMN `paid_at`           DATETIME     DEFAULT NULL COMMENT '支付时间'       AFTER `shipping_remark`,
+    ADD COLUMN `shipped_at`        DATETIME     DEFAULT NULL COMMENT '发货时间'       AFTER `paid_at`,
     ADD COLUMN `completed_at`      DATETIME     DEFAULT NULL COMMENT '确认收货时间'   AFTER `shipped_at`;
 
 -- ============================================================
