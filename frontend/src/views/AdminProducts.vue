@@ -458,16 +458,44 @@ async function handleImport(options) {
   }
 }
 
-function handleExport() {
+async function handleExport() {
   const params = { ...filterForm }
   Object.keys(params).forEach(key => {
     if (params[key] === null || params[key] === undefined || params[key] === '') {
       delete params[key]
     }
   })
-  const queryString = new URLSearchParams(params).toString()
-  const url = `/api/admin/products/export${queryString ? '?' + queryString : ''}`
-  window.open(url, '_blank')
+  try {
+    const res = await api.get('/admin/products/export', {
+      params,
+      responseType: 'blob'
+    })
+    let filename = '商品列表.csv'
+    const disposition = res.headers['content-disposition']
+    if (disposition) {
+      const match = disposition.match(/filename\*=UTF-8''([^;]+)/i) || disposition.match(/filename="?([^"]+)"?/i)
+      if (match && match[1]) {
+        try {
+          filename = decodeURIComponent(match[1])
+        } catch {
+          filename = match[1]
+        }
+      }
+    }
+    const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+    ElMessage.success('导出成功')
+  } catch (e) {
+    console.error('导出失败', e)
+    ElMessage.error('导出失败')
+  }
 }
 
 function downloadTemplate() {

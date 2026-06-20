@@ -17,8 +17,21 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (res) => res,
-  (err) => {
-    const msg = err.response?.data?.message || err.message || '网络错误'
+  async (err) => {
+    let msg = err.message || '网络错误'
+    if (err.response?.data) {
+      if (err.response.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text()
+          const json = JSON.parse(text)
+          msg = json.message || msg
+        } catch {
+          msg = err.response.statusText || msg
+        }
+      } else if (err.response.data.message) {
+        msg = err.response.data.message
+      }
+    }
     ElMessage.error(msg)
     if (err.response?.status === 401) {
       useUserStore().logout()
