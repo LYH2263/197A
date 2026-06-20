@@ -145,6 +145,7 @@ CREATE TABLE IF NOT EXISTS product_image (
   is_main TINYINT NOT NULL DEFAULT 0,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+CREATE UNIQUE INDEX IF NOT EXISTS uk_product_image ON product_image(product_id, image_url);
 CREATE INDEX IF NOT EXISTS idx_product_image_product ON product_image(product_id);
 CREATE INDEX IF NOT EXISTS idx_product_image_sort ON product_image(product_id, sort_order);
 

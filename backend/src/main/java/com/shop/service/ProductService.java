@@ -5,7 +5,6 @@ import com.shop.dto.PageResult;
 import com.shop.dto.ProductQueryDTO;
 import com.shop.entity.Product;
 import com.shop.entity.ProductImage;
-import com.shop.mapper.ProductImageMapper;
 import com.shop.mapper.ProductMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -17,12 +16,12 @@ import java.util.List;
 public class ProductService {
 
     private final ProductMapper productMapper;
-    private final ProductImageMapper productImageMapper;
+    private final ProductImageService productImageService;
 
     public List<Product> list(Long categoryId, String keyword) {
         List<Product> products = productMapper.selectByCondition(categoryId, keyword, 1);
         for (Product p : products) {
-            List<ProductImage> images = productImageMapper.selectByProductId(p.getId());
+            List<ProductImage> images = productImageService.listByProductId(p.getId());
             if (images != null && !images.isEmpty()) {
                 p.setImages(images);
             }
@@ -36,7 +35,7 @@ public class ProductService {
         }
         List<Product> products = productMapper.selectByAdvancedCondition(query);
         for (Product p : products) {
-            List<ProductImage> images = productImageMapper.selectByProductId(p.getId());
+            List<ProductImage> images = productImageService.listByProductId(p.getId());
             if (images != null && !images.isEmpty()) {
                 p.setImages(images);
             }
@@ -47,7 +46,7 @@ public class ProductService {
     public Product getById(Long id) {
         Product p = productMapper.selectById(id);
         if (p != null) {
-            List<ProductImage> images = productImageMapper.selectByProductId(id);
+            List<ProductImage> images = productImageService.listByProductId(id);
             if (images != null && !images.isEmpty()) {
                 p.setImages(images);
             }

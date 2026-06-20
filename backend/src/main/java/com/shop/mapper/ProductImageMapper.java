@@ -28,4 +28,6 @@ public interface ProductImageMapper {
     int setMain(@Param("id") Long id);
 
     int countByProductId(@Param("productId") Long productId);
+
+    int existsByProductIdAndImageUrl(@Param("productId") Long productId, @Param("imageUrl") String imageUrl);
 }

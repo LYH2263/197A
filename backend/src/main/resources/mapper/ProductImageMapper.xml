@@ -53,4 +53,8 @@
     <select id="countByProductId" resultType="int">
         SELECT COUNT(*) FROM product_image WHERE product_id = #{productId}
     </select>
+
+    <select id="existsByProductIdAndImageUrl" resultType="int">
+        SELECT COUNT(*) FROM product_image WHERE product_id = #{productId} AND image_url = #{imageUrl}
+    </select>
 </mapper>

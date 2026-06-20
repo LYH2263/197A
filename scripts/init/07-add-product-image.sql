@@ -9,11 +9,12 @@ CREATE TABLE IF NOT EXISTS `product_image` (
   `is_main` TINYINT NOT NULL DEFAULT 0 COMMENT '是否为主图 0否 1是',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_product_image` (`product_id`, `image_url`),
   KEY `idx_product` (`product_id`),
   KEY `idx_product_sort` (`product_id`, `sort_order`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商品图片关联表';
 
-INSERT INTO `product_image` (`product_id`, `image_url`, `sort_order`, `is_main`) VALUES
+INSERT IGNORE INTO `product_image` (`product_id`, `image_url`, `sort_order`, `is_main`) VALUES
 (1, '/images/phone-pro.png', 0, 1),
 (1, '/images/phone1.svg', 1, 0),
 (1, '/images/phone2.svg', 2, 0),

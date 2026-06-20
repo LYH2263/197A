@@ -349,7 +349,16 @@ const reviewDialogTitle = computed(() => {
 const galleryImages = computed(() => {
   if (!product.value) return []
   if (product.value.images && product.value.images.length > 0) {
-    return product.value.images
+    const seen = new Set()
+    const deduped = []
+    for (const img of product.value.images) {
+      const url = img.imageUrl || img
+      if (!seen.has(url)) {
+        seen.add(url)
+        deduped.push(img)
+      }
+    }
+    return deduped
   }
   if (product.value.mainImage) {
     return [{ imageUrl: product.value.mainImage, isMain: 1 }]

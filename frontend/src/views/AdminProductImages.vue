@@ -17,7 +17,7 @@
       <div class="actions-bar">
         <el-button type="primary" @click="showAddDialog = true">添加图片</el-button>
         <el-button @click="showBulkDialog = true">批量导入 URL</el-button>
-        <span class="image-count">当前 {{ images.length }} / 8 张</span>
+        <span class="image-count">当前 {{ images.length }} 张（需保持 3～8 张）</span>
       </div>
 
       <div v-loading="loadingImages" class="image-grid">
@@ -108,7 +108,18 @@ async function loadImages() {
   loadingImages.value = true
   try {
     const res = await api.get(`/admin/products/${selectedProductId.value}/images`)
-    if (res.data.code === 200) images.value = res.data.data || []
+    if (res.data.code === 200) {
+      const raw = res.data.data || []
+      const seen = new Set()
+      const deduped = []
+      for (const img of raw) {
+        if (!seen.has(img.imageUrl)) {
+          seen.add(img.imageUrl)
+          deduped.push(img)
+        }
+      }
+      images.value = deduped
+    }
   } catch {
     images.value = []
   } finally {
@@ -154,8 +165,12 @@ async function bulkImport() {
 }
 
 async function deleteImage(id) {
+  if (images.length <= 3) {
+    ElMessage.warning('每个商品至少保留3张展示图，当前共' + images.length + '张，无法继续删除')
+    return
+  }
   try {
-    await ElMessageBox.confirm('确定删除此图片？', '提示', { type: 'warning' })
+    await ElMessageBox.confirm('确定删除此图片？删除后该商品仍需保持至少3张展示图。', '提示', { type: 'warning' })
     await api.delete(`/admin/products/images/${id}`)
     ElMessage.success('删除成功')
     await loadImages()
