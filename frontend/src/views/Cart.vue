@@ -28,6 +28,15 @@
                     <span class="name" :class="{ 'text-muted': row.offline }">{{ row.productName }}</span>
                     <el-tag v-if="row.offline" type="info" size="small" effect="dark" class="status-tag">已失效</el-tag>
                     <el-tag v-else-if="row.stockInsufficient" type="danger" size="small" effect="light" class="status-tag">库存不足</el-tag>
+                    <el-tag
+                      v-else-if="!row.offline && row.priceDiff && row.priceDiff !== 0"
+                      :type="row.priceRaised ? 'danger' : 'success'"
+                      size="small"
+                      effect="light"
+                      class="status-tag price-tag"
+                    >
+                      {{ row.priceRaised ? '↑ 涨' : '↓ 跌' }} ¥{{ formatDiff(row.priceDiff) }}
+                    </el-tag>
                   </div>
                   <div v-if="!row.offline && row.priceDiff && row.priceDiff !== 0" class="price-change" :class="row.priceRaised ? 'up' : 'down'">
                     比加入时{{ row.priceRaised ? '涨' : '跌' }}
@@ -370,6 +379,12 @@ onBeforeUnmount(() => {
 
 .status-tag {
   flex-shrink: 0;
+}
+
+.price-tag {
+  font-weight: 600;
+  padding: 2px 8px;
+  letter-spacing: 0.5px;
 }
 
 .price-change {

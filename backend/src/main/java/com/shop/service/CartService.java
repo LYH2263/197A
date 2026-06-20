@@ -56,12 +56,18 @@ public class CartService {
         log.debug("Cart add: userId={}, productId={}, quantity={}", userId, productId, quantity);
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public List<CartItemVO> list(Long userId) {
         List<CartItem> items = cartItemMapper.selectByUserId(userId);
         List<CartItemVO> result = new ArrayList<>();
         for (CartItem item : items) {
             Product p = productMapper.selectById(item.getProductId());
             if (p == null) continue;
+            if (item.getPriceSnapshot() == null) {
+                item.setPriceSnapshot(p.getPrice());
+                cartItemMapper.updateById(item);
+                log.debug("补写价格快照: userId={}, productId={}, price={}", userId, p.getId(), p.getPrice());
+            }
             result.add(buildVO(item, p));
         }
         return result;
